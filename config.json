@@ -1,0 +1,10 @@
+{
+  "tts_provider": "gemini",
+  "gemini_api_key": "AQ.Ab8RN6IoFhKZ5MnrSv1ruYLKOg0ysjUjd3bDtaVO0Z1dPsBW4A",
+  "elevenlabs_api_key": "",
+  "elevenlabs_voice_id": "21m00Tcm4TlvDq8ikWAM",
+  "crossfade_seconds": 6,
+  "ducking_volume": 0.18,
+  "style": "friendly_rj",
+  "station_name": "Radio Four D M"
+}
