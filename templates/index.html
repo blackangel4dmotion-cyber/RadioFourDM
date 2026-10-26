@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="si">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Radio 4DM | Pro Live DJ Master Console</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Noto+Sans+Sinhala:wght@400;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="studio-wrapper">
+        <!-- Top Fixed Studio Header -->
+        <header class="header">
+            <div class="logo-area">
+                <div class="radio-icon-box">
+                    <i class="fa-solid fa-tower-broadcast"></i>
+                </div>
+                <div class="header-titles">
+                    <h1>RADIO 4DM <span class="badge-live">ON AIR</span></h1>
+                    <p class="subtitle">Radio 4DM Official Studio • DJ Dual-Deck Mixer • Real Girl Voice • Gemini AI</p>
+                </div>
+            </div>
+            <div class="header-tools">
+                <button class="btn-studio-tool" onclick="openSettingsModal()" title="Studio Settings">
+                    <i class="fa-solid fa-sliders"></i> Audio / AI Settings
+                </button>
+                <div class="meta-pill">
+                    <i class="fa-solid fa-users"></i>
+                    <span>Listeners: <strong id="listenerCount">0</strong></span>
+                </div>
+                <div class="meta-pill clock-pill">
+                    <i class="fa-regular fa-clock"></i>
+                    <span id="liveClock">--:--:--</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Fixed-Alignment Studio Grid (2 Balanced Columns) -->
+        <div class="studio-grid">
+            <!-- LEFT COLUMN: DJ Hardware & Broadcast Engine -->
+            <div class="grid-col left-deck">
+                <!-- 1. Master On-Air Deck -->
+                <div class="card master-deck-card">
+                    <div class="card-header">
+                        <div class="on-air-status">
+                            <span class="pulsing-dot"></span>
+                            <span class="status-label">MASTER ON AIR</span>
+                        </div>
+                        <div class="deck-indicators">
+                            <span id="deckABadge" class="badge-deck active">DECK A</span>
+                            <span id="deckBBadge" class="badge-deck">DECK B</span>
+                            <span id="trackTypeBadge" class="track-badge music">MUSIC</span>
+                        </div>
+                    </div>
+
+                    <div class="track-display-box">
+                        <div class="visualizer-container">
+                            <div class="sound-wave-bars">
+                                <span class="bar"></span><span class="bar"></span><span class="bar"></span>
+                                <span class="bar"></span><span class="bar"></span><span class="bar"></span>
+                                <span class="bar"></span><span class="bar"></span><span class="bar"></span>
+                                <span class="bar"></span><span class="bar"></span><span class="bar"></span>
+                            </div>
+                        </div>
+                        <div class="track-text-box">
+                            <h2 id="nowPlayingTitle" title="Waiting for stream...">Station Booting / Ready...</h2>
+                            <p id="nowPlayingUploader" class="uploader-text">Online Radio Server</p>
+                        </div>
+                    </div>
+
+                    <!-- Built-in Station Controls -->
+                    <div class="player-controls">
+                        <audio id="radioAudio" preload="auto"></audio>
+                        <button id="playBtn" class="btn btn-primary btn-play">
+                            <i class="fa-solid fa-play"></i> Listen Live
+                        </button>
+                        <button id="skipBtn" class="btn btn-secondary" title="DJ Smooth Crossfade to Next Track">
+                            <i class="fa-solid fa-forward-step"></i> DJ Crossfade Next
+                        </button>
+                        <div class="volume-slider-box">
+                            <i class="fa-solid fa-volume-high" id="volumeIcon"></i>
+                            <input type="range" id="volumeSlider" min="0" max="1" step="0.05" value="1">
+                        </div>
+                    </div>
+
+                    <div id="playerStatusTip" class="fixed-status-line">Audio Ready • Instant 64KB Burst Preload Active.</div>
+
+                    <div class="stream-url-info">
+                        <i class="fa-solid fa-link"></i>
+                        <code id="streamUrlDisplay">http://localhost:8000/stream</code>
+                        <button class="btn-copy" onclick="copyStreamUrl()" title="Copy Link"><i class="fa-regular fa-copy"></i></button>
+                    </div>
+                </div>
+
+                <!-- 2. Pro DJ Hardware Dual-Deck Mixer -->
+                <div class="card dj-mixer-card">
+                    <div class="card-header">
+                        <h3><i class="fa-solid fa-sliders" style="color: #60a5fa;"></i> Pro DJ Mixer Console (Deck A & Deck B)</h3>
+                        <span id="crossfadeStatusLabel" class="crossfade-mode-text">Gapless Equal-Power</span>
+                    </div>
+
+                    <div class="dual-deck-container">
+                        <!-- DECK A -->
+                        <div class="deck-channel deck-channel-a">
+                            <div class="channel-header">
+                                <span class="channel-tag">DECK A</span>
+                                <button id="deckAMuteBtn" class="btn-deck-mute" onclick="toggleMute('A')" title="Mute Deck A">MUTE</button>
+                            </div>
+                            <div class="channel-info">
+                                <div id="deckATitle" class="channel-track-title">Waiting...</div>
+                                <div id="deckATime" class="channel-time">00:00 / 00:00</div>
+                            </div>
+                            <div class="fader-group">
+                                <label>Gain:</label>
+                                <input type="range" id="deckAGain" min="0" max="1.5" step="0.05" value="1" oninput="setGain('A', this.value)">
+                            </div>
+                        </div>
+
+                        <!-- MASTER CENTER CROSSFADER -->
+                        <div class="center-crossfader-block">
+                            <div class="crossfader-slider-wrap">
+                                <div class="fader-labels">
+                                    <span>DECK A</span>
+                                    <span>50/50</span>
+                                    <span>DECK B</span>
+                                </div>
+                                <input type="range" id="manualCrossfader" min="0" max="100" value="0" oninput="onManualCrossfade(this.value)">
+                            </div>
+                            <div class="crossfade-btn-row">
+                                <button class="btn-xfade" onclick="snapCrossfade(0)">◄ Deck A</button>
+                                <button class="btn-xfade" onclick="snapCrossfade(50)">50/50</button>
+                                <button class="btn-xfade" onclick="snapCrossfade(100)">Deck B ►</button>
+                                <button class="btn-xfade auto-btn" onclick="autoCrossfade()">Auto ⚡</button>
+                            </div>
+                        </div>
+
+                        <!-- DECK B -->
+                        <div class="deck-channel deck-channel-b">
+                            <div class="channel-header">
+                                <span class="channel-tag">DECK B</span>
+                                <button id="deckBMuteBtn" class="btn-deck-mute" onclick="toggleMute('B')" title="Mute Deck B">MUTE</button>
+                            </div>
+                            <div class="channel-info">
+                                <div id="deckBTitle" class="channel-track-title">Waiting...</div>
+                                <div id="deckBTime" class="channel-time">00:00 / 00:00</div>
+                            </div>
+                            <div class="fader-group">
+                                <label>Gain:</label>
+                                <input type="range" id="deckBGain" min="0" max="1.5" step="0.05" value="1" oninput="setGain('B', this.value)">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. DJ Sound Effects & Launchpad Pads (One-Shot SFX) -->
+                <div class="card sfx-card">
+                    <div class="card-header">
+                        <h3><i class="fa-solid fa-wand-magic-sparkles" style="color: #ec4899;"></i> DJ Sound Effects & Launchpad Pads</h3>
+                        <span class="sfx-subtext">Instant Broadcast Overlay</span>
+                    </div>
+                    <div class="sfx-pad-grid">
+                        <button class="sfx-pad pad-airhorn" onclick="triggerSfx('airhorn')" title="Air Horn Blast">
+                            <i class="fa-solid fa-bullhorn"></i>
+                            <span class="pad-title">AIR HORN</span>
+                            <span class="pad-desc">Classic DJ Horn</span>
+                        </button>
+                        <button class="sfx-pad pad-scratch" onclick="triggerSfx('scratch')" title="Vinyl Scratch">
+                            <i class="fa-solid fa-record-vinyl"></i>
+                            <span class="pad-title">SCRATCH</span>
+                            <span class="pad-desc">Vinyl Rewind</span>
+                        </button>
+                        <button class="sfx-pad pad-laser" onclick="triggerSfx('laser')" title="Laser Zap">
+                            <i class="fa-solid fa-bolt-lightning"></i>
+                            <span class="pad-title">LASER DROP</span>
+                            <span class="pad-desc">Laser Sweep</span>
+                        </button>
+                        <button class="sfx-pad pad-bassdrop" onclick="triggerSfx('bassdrop')" title="808 Bass Boom">
+                            <i class="fa-solid fa-explosion"></i>
+                            <span class="pad-title">BASS DROP</span>
+                            <span class="pad-desc">808 Sub Boom</span>
+                        </button>
+                        <button class="sfx-pad pad-applause" onclick="triggerSfx('applause')" title="Crowd Cheers">
+                            <i class="fa-solid fa-hands-clapping"></i>
+                            <span class="pad-title">APPLAUSE</span>
+                            <span class="pad-desc">Crowd Cheers</span>
+                        </button>
+                        <button class="sfx-pad pad-chime" onclick="triggerSfx('chime')" title="Station Chime">
+                            <i class="fa-solid fa-bell"></i>
+                            <span class="pad-title">CHIME</span>
+                            <span class="pad-desc">Station Bells</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 4. 24/7 Auto-DJ & Rotation -->
+                <div class="card autodj-card">
+                    <div class="card-header">
+                        <h3><i class="fa-solid fa-compact-disc fa-spin-pulse" style="color: #3b82f6;"></i> 24/7 Auto-DJ & Rotation</h3>
+                        <label class="switch" title="Toggle Auto-DJ 24/7 Mode">
+                            <input type="checkbox" id="autoDjToggle" checked>
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
+                    <p class="section-desc">
+                        Sinhala, Hindi සහ English ජනප්‍රිය ගීත <strong>එකම ගීතය නැවත add නොවී (Strict Deduplication)</strong> අඛණ්ඩව වාදනය කරයි.
+                    </p>
+                    <div class="chart-btn-group">
+                        <button class="btn btn-chart btn-mixed" onclick="loadChart('mixed')">
+                            <i class="fa-solid fa-shuffle"></i> 5 Random Mixed Hits
+                        </button>
+                        <button class="btn btn-chart" onclick="loadChart('sinhala')">
+                            <i class="fa-solid fa-music"></i> 5 Random Sinhala
+                        </button>
+                        <button class="btn btn-chart" onclick="loadChart('english')">
+                            <i class="fa-solid fa-globe"></i> 5 Random English
+                        </button>
+                        <button class="btn btn-chart" onclick="loadChart('hindi')">
+                            <i class="fa-solid fa-fire"></i> 5 Random Hindi
+                        </button>
+                        <button class="btn btn-chart" onclick="loadRandomSingleTrack()" style="background: linear-gradient(135deg, #ec4899, #8b5cf6); border: none; font-weight: bold; color: white;">
+                            <i class="fa-solid fa-dice"></i> 🎲 Surprise Random Song
+                        </button>
+                    </div>
+                    <div id="chartFeedback" class="fixed-feedback"></div>
+                </div>
+            </div>
+
+            <!-- RIGHT COLUMN: Song Queue & Voice / Ads Engine -->
+            <div class="grid-col right-deck">
+                <!-- 1. Queue Song -->
+                <div class="card yt-queue-card">
+                    <div class="card-header">
+                        <h3><i class="fa-brands fa-youtube" style="color: #ff3333;"></i> Queue Song (Search or Link)</h3>
+                    </div>
+                    <p class="section-desc">
+                        YouTube link එකක් paste කරන්න හෝ ගීතයේ නම search කරන්න (Deduplication enabled):
+                    </p>
+                    <form id="youtubeForm" class="control-form">
+                        <div class="input-group">
+                            <i class="fa-solid fa-magnifying-glass input-icon"></i>
+                            <input type="text" id="ytUrlInput" placeholder="උදා: Sanuka Saragaye / Arijit Kesariya / YouTube URL" required autocomplete="off">
+                            <button type="submit" id="addYtBtn" class="btn btn-success btn-inline-add">
+                                <i class="fa-solid fa-plus"></i> Add Song
+                            </button>
+                        </div>
+                    </form>
+                    <div id="ytFeedback" class="fixed-feedback"></div>
+                </div>
+
+                <!-- 2. Playlist Queue: 10 Songs Standby Chart with Pattern & Priority Selection -->
+                <div class="card playlist-card">
+                    <div class="card-header">
+                        <h3><i class="fa-solid fa-list-ol"></i> 10-Song Standby Chart (<span id="queueCount">0</span>/10)</h3>
+                        <div style="display:flex; gap:5px;">
+                            <button class="btn-clear-queue" onclick="loadRandomSingleTrack()" title="Add another random track"><i class="fa-solid fa-plus"></i> Add Hit</button>
+                            <button class="btn-clear-queue" onclick="clearQueue()" title="Clear all upcoming songs">Clear All</button>
+                        </div>
+                    </div>
+                    <div id="playlistContainer" class="fixed-playlist-list">
+                        <div class="empty-state">Loading standby tracks...</div>
+                    </div>
+                </div>
+
+                <!-- 3. Hourly Radio Time Cast (:00) -->
+                <div class="card time-caster-card">
+                    <div class="card-header">
+                        <h3><i class="fa-solid fa-bell" style="color: #10b981;"></i> Hourly Radio Time Cast (:00)</h3>
+                        <label class="switch" title="Toggle Auto Hourly Cast">
+                            <input type="checkbox" id="schedulerToggle" checked>
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
+                    <p class="section-desc">
+                        පැයෙන් පැයට Music Volume එක අඩුවී (Ducking), AI ස්වභාවික කාන්තා කටහඬින් වේලාව ප්‍රකාශ වේ.
+                    </p>
+                    <div class="time-caster-actions">
+                        <button id="testTimeBtn" class="btn btn-outline">
+                            <i class="fa-solid fa-volume-high"></i> Test RJ Time Cast Now
+                        </button>
+                        <span id="timeStatusMsg" class="status-tip"></span>
+                    </div>
+                </div>
+
+                <!-- 3b. Quick Flash News (:10 Min Inter-Song Auto-Broadcast) -->
+                <div class="card news-caster-card">
+                    <div class="card-header">
+                        <h3><i class="fa-solid fa-bolt" style="color: #ef4444;"></i> Quick News Flash (:10 Min)</h3>
+                        <label class="switch" title="Toggle Auto 10-Minute News Poller">
+                            <input type="checkbox" id="newsSchedulerToggle" checked>
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
+                    <p class="section-desc">
+                        සජීවී <strong>එසැණ පුවත්</strong> සෑම විනාඩි 10 කට වරක්ම පරීක්ෂා වී, වාදනය වන ගීතය අවසන් වූ පසු මීළඟ ගීතය ආරම්භ වීමට පෙර Radio Four D M Gemini RJ විසින් ප්‍රකාශ වේ.
+                    </p>
+                    <div class="news-preview-box">
+                        <span class="news-badge"><i class="fa-solid fa-circle-dot fa-fade"></i> එසැණ පුවත්</span>
+                        <div id="newsHeadlineText" class="news-headline">කන්දේවිහාරයේදී අලි පහරින් ගයිඩ් මරු දකියි</div>
+                    </div>
+                    <div class="time-caster-actions" style="margin-top: 6px;">
+                        <button id="broadcastNewsBtn" class="btn btn-outline" onclick="triggerNewsBroadcastNow()">
+                            <i class="fa-solid fa-bullhorn"></i> Broadcast Quick News Now
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline" onclick="refreshAdaDeranaNews()" title="Fetch latest quick news headline">
+                            <i class="fa-solid fa-arrows-rotate"></i> Check News
+                        </button>
+                        <span id="newsStatusMsg" class="status-tip"></span>
+                    </div>
+                </div>
+
+                <!-- 4. Type & Speak Advertisement with Helakuru Unicode -->
+                <div class="card ad-card">
+                    <div class="card-header">
+                        <h3><i class="fa-solid fa-bullhorn" style="color: #f59e0b;"></i> Type & Speak AI Broadcast (දැන්වීම්)</h3>
+                        <button type="button" id="singlishToggleBtn" class="btn-singlish-toggle active" title="Toggle Helakuru Unicode typing (Shortcut: F12 / Ctrl+Space)">
+                            <span class="toggle-dot"></span>
+                            <span id="singlishToggleLabel">හෙළකුරු ➡️ සිංහල: ON (F12)</span>
+                        </button>
+                    </div>
+
+                    <!-- Radio 4DM Multi-Accent Station Tagline Engine -->
+                    <div class="tagline-station-box">
+                        <div class="tagline-header">
+                            <span><i class="fa-solid fa-tower-broadcast"></i> <strong>Radio 4DM Official Station Tagline</strong></span>
+                            <span class="tagline-desc">බහු-කටහඬ විලාසිතා (Multi-Accent)</span>
+                        </div>
+                        <div class="tagline-controls">
+                            <select id="taglineAccentSelect" class="tagline-select">
+                                <option value="random">🎲 Random Accent (අහඹු කටහඬ)</option>
+                                <option value="tagline_si_cheerful">🌸 Sinhala Cheerful Girl (Aoede)</option>
+                                <option value="tagline_si_sweet">🌺 Sinhala Sweet RJ (Kore)</option>
+                                <option value="tagline_en_dj">🎧 English Cool DJ (Puck)</option>
+                                <option value="tagline_en_smooth">🎙️ English Smooth Host (Charon)</option>
+                                <option value="tagline_en_bold">⚡ English Bold Voice (Fenrir)</option>
+                                <option value="tagline_si_classic">📻 Sinhala Classic Jingle</option>
+                            </select>
+                            <button type="button" id="playTaglineBtn" class="btn-tagline" onclick="triggerStationTagline()">
+                                <i class="fa-solid fa-play"></i> Drop Tagline
+                            </button>
+                        </div>
+                        <div id="taglineFeedback" class="fixed-feedback"></div>
+                    </div>
+
+                    <!-- 1-Click Real-Girl Studio RJ Voice Drops -->
+                    <div class="prerender-voice-row">
+                        <span class="prerender-label"><i class="fa-solid fa-microphone-sparkles"></i> 1-Click Studio RJ Drops (Real Girl Voice):</span>
+                        <div class="prerender-btns">
+                            <button type="button" class="btn-voice-drop" onclick="playPreRenderedDrop('promo_discounts')" title="විශේෂ වට්ටම් දැන්වීම">
+                                <i class="fa-solid fa-tags"></i> වට්ටම්
+                            </button>
+                            <button type="button" class="btn-voice-drop" onclick="playPreRenderedDrop('promo_wishes')" title="ශ්‍රාවක සුබ පැතුම්">
+                                <i class="fa-solid fa-heart"></i> සුබපැතුම්
+                            </button>
+                            <button type="button" class="btn-voice-drop" onclick="playPreRenderedDrop('promo_station_id')" title="Radio ID Jingle">
+                                <i class="fa-solid fa-tower-broadcast"></i> Station ID
+                            </button>
+                            <button type="button" class="btn-voice-drop" onclick="playPreRenderedDrop('promo_morning')" title="සුබ උදෑසනක්">
+                                <i class="fa-solid fa-sun"></i> උදෑසන
+                            </button>
+                            <button type="button" class="btn-voice-drop" onclick="playPreRenderedDrop('promo_night')" title="සුබ රාත්‍රියක්">
+                                <i class="fa-solid fa-moon"></i> රාත්‍රී
+                            </button>
+                            <button type="button" class="btn-voice-drop" onclick="playPreRenderedDrop('promo_next_song')" title="මීළඟ ගීතය හඳුන්වාදීම">
+                                <i class="fa-solid fa-music"></i> Next Track
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="quick-sample-chips">
+                        <span class="chip-label">Custom Scripts:</span>
+                        <button type="button" class="sample-chip" onclick="insertSample('promo')">+ විශේෂ වට්ටම්</button>
+                        <button type="button" class="sample-chip" onclick="insertSample('wishes')">+ සුබ පැතුම්</button>
+                        <button type="button" class="sample-chip" onclick="insertSample('radio')">+ Radio ID</button>
+                    </div>
+
+                    <form id="adForm" class="control-form">
+                        <div class="form-group">
+                            <div class="textarea-header">
+                                <label for="adTextInput">Advertisement Script / Message:</label>
+                                <span id="keyboardModeIndicator" class="mode-indicator active">හෙළකුරු Unicode ක්‍රියාත්මකයි</span>
+                            </div>
+                            <textarea id="adTextInput" rows="3" placeholder="Helakuru Singlish වලින් type කරන්න (උදා: suba qawasak yaluwane)...&#10;හෝ F12 ඔබා English වලින් type කරන්න." required></textarea>
+                        </div>
+
+                        <div class="voice-row">
+                            <div class="form-group flex-1">
+                                <label><i class="fa-solid fa-language"></i> Language (භාෂාව):</label>
+                                <select id="adLangSelect">
+                                    <option value="si" selected>🇱🇰 සිංහල පමණි (Sinhala Only)</option>
+                                    <option value="en">🇬🇧 English Only</option>
+                                    <option value="auto">🌐 Auto Detect (ස්වයංක්‍රීය)</option>
+                                </select>
+                            </div>
+                            <div class="form-group flex-1">
+                                <label><i class="fa-solid fa-wand-magic-sparkles"></i> AI Voice Engine:</label>
+                                <select id="adProviderSelect">
+                                    <option value="gemini" selected>✨ Google Gemini AI Voice (Radio 4DM)</option>
+                                </select>
+                            </div>
+                            <div class="form-group flex-1">
+                                <label><i class="fa-solid fa-user-tie"></i> Voice Persona:</label>
+                                <select id="adVoiceSelect">
+                                    <option value="si-female">🌸 Female Radio RJ (කාන්තා කටහඬ)</option>
+                                    <option value="si-male">🎙️ Male Radio Host (පිරිමි කටහඬ)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <button type="submit" id="broadcastAdBtn" class="btn btn-warning btn-block">
+                            <i class="fa-solid fa-microphone-lines"></i> Broadcast AI Voice on Radio (Ducking)
+                        </button>
+                    </form>
+                    <div id="adFeedback" class="fixed-feedback"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-sliders"></i> Radio 4DM Studio & AI Settings</h3>
+                <button class="modal-close" onclick="closeSettingsModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="setting-item">
+                    <label>Google Gemini API Key (Dedicated Radio Voice):</label>
+                    <input type="password" id="modalGeminiKey" placeholder="AQ.Ab8RN6...">
+                    <small>Official Gemini API Key is configured and saved for Radio 4DM Studio.</small>
+                </div>
+
+                <div class="setting-row">
+                    <div class="setting-item flex-1">
+                        <label>DJ Crossfade Duration (Seconds):</label>
+                        <input type="number" id="modalCrossfadeSec" min="2" max="15" value="6">
+                    </div>
+                    <div class="setting-item flex-1">
+                        <label>Voiceover Ducking Volume:</label>
+                        <select id="modalDuckingVol">
+                            <option value="0.15">15% (Loud Voice, Soft Music)</option>
+                            <option value="0.18" selected>18% (Studio Optimized Ducking)</option>
+                            <option value="0.25">25% (Standard Radio)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeSettingsModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveStudioSettings()">Save Settings</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/singlish.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
