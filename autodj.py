@@ -190,7 +190,12 @@ class AutoDJEngine:
             'format': 'bestaudio/best',
             'quiet': True,
             'no_warnings': True,
-            'default_search': 'ytsearch'
+            'default_search': 'ytsearch',
+            'extractor_args': {
+                'youtube': {
+                    'player_client': ['tv', 'mweb', 'android', 'web']
+                }
+            }
         }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(query, download=False)
