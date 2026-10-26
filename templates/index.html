@@ -231,91 +231,10 @@
 
             <!-- RIGHT COLUMN: Song Queue & Voice / Ads Engine -->
             <div class="grid-col right-deck">
-                <!-- 1. Queue Song -->
-                <div class="card yt-queue-card">
-                    <div class="card-header">
-                        <h3><i class="fa-brands fa-youtube" style="color: #ff3333;"></i> Queue Song (Search or Link)</h3>
-                    </div>
-                    <p class="section-desc">
-                        YouTube link එකක් paste කරන්න හෝ ගීතයේ නම search කරන්න (Deduplication enabled):
-                    </p>
-                    <form id="youtubeForm" class="control-form">
-                        <div class="input-group">
-                            <i class="fa-solid fa-magnifying-glass input-icon"></i>
-                            <input type="text" id="ytUrlInput" placeholder="උදා: Sanuka Saragaye / Arijit Kesariya / YouTube URL" required autocomplete="off">
-                            <button type="submit" id="addYtBtn" class="btn btn-success btn-inline-add">
-                                <i class="fa-solid fa-plus"></i> Add Song
-                            </button>
-                        </div>
-                    </form>
-                    <div id="ytFeedback" class="fixed-feedback"></div>
-                </div>
-
-                <!-- 2. Playlist Queue: 10 Songs Standby Chart with Pattern & Priority Selection -->
-                <div class="card playlist-card">
-                    <div class="card-header">
-                        <h3><i class="fa-solid fa-list-ol"></i> 10-Song Standby Chart (<span id="queueCount">0</span>/10)</h3>
-                        <div style="display:flex; gap:5px;">
-                            <button class="btn-clear-queue" onclick="loadRandomSingleTrack()" title="Add another random track"><i class="fa-solid fa-plus"></i> Add Hit</button>
-                            <button class="btn-clear-queue" onclick="clearQueue()" title="Clear all upcoming songs">Clear All</button>
-                        </div>
-                    </div>
-                    <div id="playlistContainer" class="fixed-playlist-list">
-                        <div class="empty-state">Loading standby tracks...</div>
-                    </div>
-                </div>
-
-                <!-- 3. Hourly Radio Time Cast (:00) -->
-                <div class="card time-caster-card">
-                    <div class="card-header">
-                        <h3><i class="fa-solid fa-bell" style="color: #10b981;"></i> Hourly Radio Time Cast (:00)</h3>
-                        <label class="switch" title="Toggle Auto Hourly Cast">
-                            <input type="checkbox" id="schedulerToggle" checked>
-                            <span class="slider round"></span>
-                        </label>
-                    </div>
-                    <p class="section-desc">
-                        පැයෙන් පැයට Music Volume එක අඩුවී (Ducking), AI ස්වභාවික කාන්තා කටහඬින් වේලාව ප්‍රකාශ වේ.
-                    </p>
-                    <div class="time-caster-actions">
-                        <button id="testTimeBtn" class="btn btn-outline">
-                            <i class="fa-solid fa-volume-high"></i> Test RJ Time Cast Now
-                        </button>
-                        <span id="timeStatusMsg" class="status-tip"></span>
-                    </div>
-                </div>
-
-                <!-- 3b. Quick Flash News (:10 Min Inter-Song Auto-Broadcast) -->
-                <div class="card news-caster-card">
-                    <div class="card-header">
-                        <h3><i class="fa-solid fa-bolt" style="color: #ef4444;"></i> Quick News Flash (:10 Min)</h3>
-                        <label class="switch" title="Toggle Auto 10-Minute News Poller">
-                            <input type="checkbox" id="newsSchedulerToggle" checked>
-                            <span class="slider round"></span>
-                        </label>
-                    </div>
-                    <p class="section-desc">
-                        සජීවී <strong>එසැණ පුවත්</strong> සෑම විනාඩි 10 කට වරක්ම පරීක්ෂා වී, වාදනය වන ගීතය අවසන් වූ පසු මීළඟ ගීතය ආරම්භ වීමට පෙර Radio Four D M Gemini RJ විසින් ප්‍රකාශ වේ.
-                    </p>
-                    <div class="news-preview-box">
-                        <span class="news-badge"><i class="fa-solid fa-circle-dot fa-fade"></i> එසැණ පුවත්</span>
-                        <div id="newsHeadlineText" class="news-headline">කන්දේවිහාරයේදී අලි පහරින් ගයිඩ් මරු දකියි</div>
-                    </div>
-                    <div class="time-caster-actions" style="margin-top: 6px;">
-                        <button id="broadcastNewsBtn" class="btn btn-outline" onclick="triggerNewsBroadcastNow()">
-                            <i class="fa-solid fa-bullhorn"></i> Broadcast Quick News Now
-                        </button>
-                        <button type="button" class="btn btn-sm btn-outline" onclick="refreshAdaDeranaNews()" title="Fetch latest quick news headline">
-                            <i class="fa-solid fa-arrows-rotate"></i> Check News
-                        </button>
-                        <span id="newsStatusMsg" class="status-tip"></span>
-                    </div>
-                </div>
-
-                <!-- 4. Type & Speak Advertisement with Helakuru Unicode -->
+                <!-- 1. Google Gemini Live AI Studio (Type & Speak) -->
                 <div class="card ad-card">
                     <div class="card-header">
-                        <h3><i class="fa-solid fa-bullhorn" style="color: #f59e0b;"></i> Type & Speak AI Broadcast (දැන්වීම්)</h3>
+                        <h3><i class="fa-solid fa-wand-magic-sparkles" style="color: #f59e0b;"></i> ✨ Google Gemini Live AI Voice (Type & Speak)</h3>
                         <button type="button" id="singlishToggleBtn" class="btn-singlish-toggle active" title="Toggle Helakuru Unicode typing (Shortcut: F12 / Ctrl+Space)">
                             <span class="toggle-dot"></span>
                             <span id="singlishToggleLabel">හෙළකුරු ➡️ සිංහල: ON (F12)</span>
@@ -415,6 +334,87 @@
                         </button>
                     </form>
                     <div id="adFeedback" class="fixed-feedback"></div>
+                </div>
+
+                <!-- 2. Queue Song -->
+                <div class="card yt-queue-card">
+                    <div class="card-header">
+                        <h3><i class="fa-brands fa-youtube" style="color: #ff3333;"></i> Queue Song (Search or Link)</h3>
+                    </div>
+                    <p class="section-desc">
+                        YouTube link එකක් paste කරන්න හෝ ගීතයේ නම search කරන්න (Deduplication enabled):
+                    </p>
+                    <form id="youtubeForm" class="control-form">
+                        <div class="input-group">
+                            <i class="fa-solid fa-magnifying-glass input-icon"></i>
+                            <input type="text" id="ytUrlInput" placeholder="උදා: Sanuka Saragaye / Arijit Kesariya / YouTube URL" required autocomplete="off">
+                            <button type="submit" id="addYtBtn" class="btn btn-success btn-inline-add">
+                                <i class="fa-solid fa-plus"></i> Add Song
+                            </button>
+                        </div>
+                    </form>
+                    <div id="ytFeedback" class="fixed-feedback"></div>
+                </div>
+
+                <!-- 3. Playlist Queue: 10 Songs Standby Chart with Pattern & Priority Selection -->
+                <div class="card playlist-card">
+                    <div class="card-header">
+                        <h3><i class="fa-solid fa-list-ol"></i> 10-Song Standby Chart (<span id="queueCount">0</span>/10)</h3>
+                        <div style="display:flex; gap:5px;">
+                            <button class="btn-clear-queue" onclick="loadRandomSingleTrack()" title="Add another random track"><i class="fa-solid fa-plus"></i> Add Hit</button>
+                            <button class="btn-clear-queue" onclick="clearQueue()" title="Clear all upcoming songs">Clear All</button>
+                        </div>
+                    </div>
+                    <div id="playlistContainer" class="fixed-playlist-list">
+                        <div class="empty-state">Loading standby tracks...</div>
+                    </div>
+                </div>
+
+                <!-- 4. Hourly Radio Time Cast (:00) -->
+                <div class="card time-caster-card">
+                    <div class="card-header">
+                        <h3><i class="fa-solid fa-bell" style="color: #10b981;"></i> Hourly Radio Time Cast (:00)</h3>
+                        <label class="switch" title="Toggle Auto Hourly Cast">
+                            <input type="checkbox" id="schedulerToggle" checked>
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
+                    <p class="section-desc">
+                        පැයෙන් පැයට Music Volume එක අඩුවී (Ducking), AI ස්වභාවික කාන්තා කටහඬින් වේලාව ප්‍රකාශ වේ.
+                    </p>
+                    <div class="time-caster-actions">
+                        <button id="testTimeBtn" class="btn btn-outline">
+                            <i class="fa-solid fa-volume-high"></i> Test RJ Time Cast Now
+                        </button>
+                        <span id="timeStatusMsg" class="status-tip"></span>
+                    </div>
+                </div>
+
+                <!-- 5. Quick Flash News (:10 Min Inter-Song Auto-Broadcast) -->
+                <div class="card news-caster-card">
+                    <div class="card-header">
+                        <h3><i class="fa-solid fa-bolt" style="color: #ef4444;"></i> Quick News Flash (:10 Min)</h3>
+                        <label class="switch" title="Toggle Auto 10-Minute News Poller">
+                            <input type="checkbox" id="newsSchedulerToggle" checked>
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
+                    <p class="section-desc">
+                        සජීවී <strong>එසැණ පුවත්</strong> සෑම විනාඩි 10 කට වරක්ම පරීක්ෂා වී, වාදනය වන ගීතය අවසන් වූ පසු මීළඟ ගීතය ආරම්භ වීමට පෙර Radio Four D M Gemini RJ විසින් ප්‍රකාශ වේ.
+                    </p>
+                    <div class="news-preview-box">
+                        <span class="news-badge"><i class="fa-solid fa-circle-dot fa-fade"></i> එසැණ පුවත්</span>
+                        <div id="newsHeadlineText" class="news-headline">කන්දේවිහාරයේදී අලි පහරින් ගයිඩ් මරු දකියි</div>
+                    </div>
+                    <div class="time-caster-actions" style="margin-top: 6px;">
+                        <button id="broadcastNewsBtn" class="btn btn-outline" onclick="triggerNewsBroadcastNow()">
+                            <i class="fa-solid fa-bullhorn"></i> Broadcast Quick News Now
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline" onclick="refreshAdaDeranaNews()" title="Fetch latest quick news headline">
+                            <i class="fa-solid fa-arrows-rotate"></i> Check News
+                        </button>
+                        <span id="newsStatusMsg" class="status-tip"></span>
+                    </div>
                 </div>
             </div>
         </div>

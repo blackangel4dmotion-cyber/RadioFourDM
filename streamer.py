@@ -462,28 +462,55 @@ class AudioStationEngine:
                     self.clients.remove(dc)
 
     def add_youtube_track(self, youtube_url_or_query: str) -> Dict[str, Any]:
-        ydl_opts = {
-            'format': 'bestaudio/best',
-            'quiet': True,
-            'no_warnings': True,
-            'default_search': 'ytsearch',
-            'source_address': '0.0.0.0',
-            'extractor_args': {
-                'youtube': {
-                    'player_client': ['android', 'ios', 'mweb']
+        entry = None
+        # 1. Try YouTube first
+        try:
+            ydl_opts = {
+                'format': 'bestaudio/best',
+                'quiet': True,
+                'no_warnings': True,
+                'default_search': 'ytsearch',
+                'source_address': '0.0.0.0',
+                'extractor_args': {
+                    'youtube': {
+                        'player_client': ['android', 'ios', 'mweb']
+                    }
                 }
             }
-        }
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(youtube_url_or_query, download=False)
-            if 'entries' in info and len(info['entries']) > 0:
-                entry = info['entries'][0]
-            else:
-                entry = info
-            
-            audio_url = entry.get('url')
-            if not audio_url:
-                raise ValueError("Could not extract direct audio stream URL from YouTube")
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(youtube_url_or_query, download=False)
+                if 'entries' in info and len(info['entries']) > 0:
+                    entry = info['entries'][0]
+                elif info and info.get('url'):
+                    entry = info
+        except Exception as yt_err:
+            print(f"[Queue] YouTube extraction failed ({yt_err}). Falling back to SoundCloud...")
+
+        # 2. Fallback to SoundCloud if YouTube triggers datacenter bot block
+        if not entry or not entry.get('url'):
+            try:
+                clean_q = re.sub(r'https?://[^\s]+', '', youtube_url_or_query).strip() or youtube_url_or_query
+                sc_query = f"scsearch1:{clean_q}"
+                ydl_opts_sc = {
+                    'format': 'bestaudio/best',
+                    'quiet': True,
+                    'no_warnings': True
+                }
+                with yt_dlp.YoutubeDL(ydl_opts_sc) as ydl:
+                    info = ydl.extract_info(sc_query, download=False)
+                    if 'entries' in info and len(info['entries']) > 0:
+                        entry = info['entries'][0]
+                    elif info and info.get('url'):
+                        entry = info
+                    if entry and entry.get('url'):
+                        print(f"[Queue] Fallback to SoundCloud succeeded: {entry.get('title')}")
+            except Exception as sc_err:
+                print(f"[Queue] SoundCloud fallback error: {sc_err}")
+
+        if not entry or not entry.get('url'):
+            raise ValueError("Could not extract direct audio stream from YouTube or SoundCloud.")
+
+        audio_url = entry.get('url')
 
             title = entry.get("title", "Unknown Title")
             original_url = entry.get("webpage_url", youtube_url_or_query)
