@@ -100,20 +100,20 @@ def get_sinhala_time_text(hour: int, minute: int, style: str = "friendly_rj") ->
     if style == "friendly_rj":
         import random
         templates = [
-            f"හායි යාලුවනේ... ඔන්න Radio 4DM වෙතින් දැන් වෙලාව {time_phrase}. දිගටම ලස්සන සිංදු අහන්න රැඳී ඉන්න Radio 4DM එක්ක!",
-            f"සුබ මොහොතක් යාලුවනේ! ඔන්න Radio 4DM හෝරා නිවේදනය, දැන් වෙලාව {time_phrase} වුණා. ආසම සිංදු එක්ක අපි දිගටම ඉන්නවා, Stay tuned to Radio 4DM!",
-            f"ඔන්න එහෙනම් Radio 4DM වෙලාව බැලුවොත් දැන් {time_phrase}. දිගටම ලස්සනම සිංදු අහන්න එකතු වෙන්න Radio 4DM එක්ක!",
-            f"Radio 4DM අහන යාලුවෝ හැමෝටම ආදරයෙන් මතක් කරන්නේ, දැන් වෙලාව {time_phrase}යි. ඔබේ දවස ලස්සන කරන සුපිරිම ගීත පෙළක් එක්ක දිගටම රැඳී ඉන්න!",
-            f"සුබ දවසක් වේවා! ඔන්න Radio 4DM වෙතින් දැන් වෙලාව {time_phrase}. වැඩකටයුතු කරන ගමන්, ගෙදර ඉන්න ගමන් ලස්සනම සිංදු අහන්න Radio 4DM එක්ක ඉන්න!",
-            f"ඔබ මේ එක්වන්නේ Radio 4DM හෝරා නිවේදනය සමඟයි. දැන් වේලාව {time_phrase}. හොඳම සිංදු අහන්න දිගටම රැඳී සිටින්න අප සමඟ!",
-            f"හායි... Radio 4DM අහන ඔබ සැමට සුබ පැතුම්! දැන් වෙලාව {time_phrase}යි. ඔබේ හදවතට දැනෙන ලස්සනම ගීත සමඟින් අපේ සජීවී විකාශය දිගටම!",
-            f"දැන් වේලාව {time_phrase}යි. Radio 4DM ඔබේ ආදරණීය සංගීත නවාතැනෙන් ඔබ කැමතිම ගීත රැසක් තවමත් ඔබ වෙනුවෙන් විකාශනය වෙනවා!",
-            f"ඔන්න යාලුවනේ, Radio 4DM වෙලාව දැන් {time_phrase}. දවසේ වෙහෙස නිවාගන්න හොඳම සිංදු අහන්න දිගටම ඉන්න Radio 4DM සමඟින්!",
-            f"Radio 4DM ශ්‍රාවක ඔබ සැමට සුබ මොහොතක්! දැන් වෙලාව {time_phrase}යි. ඔබේ දවස ප්‍රබෝධමත් කරන ගීත පෙළක් සමඟින් රැඳී ඉන්න Radio 4DM එක්ක!"
+            f"හායි යාලුවනේ... ඔන්න Radio Four D M වෙතින් දැන් වෙලාව {time_phrase}. දිගටම ලස්සන සිංදු අහන්න රැඳී ඉන්න Radio Four D M එක්ක!",
+            f"සුබ මොහොතක් යාලුවනේ! ඔන්න Radio Four D M හෝරා නිවේදනය, දැන් වෙලාව {time_phrase} වුණා. ආසම සිංදු එක්ක අපි දිගටම ඉන්නවා, Stay tuned to Radio Four D M!",
+            f"ඔන්න එහෙනම් Radio Four D M වෙලාව බැලුවොත් දැන් {time_phrase}. දිගටම ලස්සනම සිංදු අහන්න එකතු වෙන්න Radio Four D M එක්ක!",
+            f"Radio Four D M අහන යාලුවෝ හැමෝටම ආදරයෙන් මතක් කරන්නේ, දැන් වෙලාව {time_phrase}යි. ඔබේ දවස ලස්සන කරන සුපිරිම ගීත පෙළක් එක්ක දිගටම රැඳී ඉන්න!",
+            f"සුබ දවසක් වේවා! ඔන්න Radio Four D M වෙතින් දැන් වෙලාව {time_phrase}. වැඩකටයුතු කරන ගමන්, ගෙදර ඉන්න ගමන් ලස්සනම සිංදු අහන්න Radio Four D M එක්ක ඉන්න!",
+            f"ඔබ මේ එක්වන්නේ Radio Four D M හෝරා නිවේදනය සමඟයි. දැන් වේලාව {time_phrase}. හොඳම සිංදු අහන්න දිගටම රැඳී සිටින්න අප සමඟ!",
+            f"හායි... Radio Four D M අහන ඔබ සැමට සුබ පැතුම්! දැන් වෙලාව {time_phrase}යි. ඔබේ හදවතට දැනෙන ලස්සනම ගීත සමඟින් අපේ සජීවී විකාශය දිගටම!",
+            f"දැන් වේලාව {time_phrase}යි. Radio Four D M ඔබේ ආදරණීය සංගීත නවාතැනෙන් ඔබ කැමතිම ගීත රැසක් තවමත් ඔබ වෙනුවෙන් විකාශනය වෙනවා!",
+            f"ඔන්න යාලුවනේ, Radio Four D M වෙලාව දැන් {time_phrase}. දවසේ වෙහෙස නිවාගන්න හොඳම සිංදු අහන්න දිගටම ඉන්න Radio Four D M සමඟින්!",
+            f"Radio Four D M ශ්‍රාවක ඔබ සැමට සුබ මොහොතක්! දැන් වෙලාව {time_phrase}යි. ඔබේ දවස ප්‍රබෝධමත් කරන ගීත පෙළක් සමඟින් රැඳී ඉන්න Radio Four D M එක්ක!"
         ]
         return random.choice(templates)
     else:
-        return f"Radio 4DM ශ්‍රාවක ඔබගේ විශේෂ අවධානයට, දැන් වේලාව {time_phrase}යි. රැඳී සිටින්න අප සමඟ."
+        return f"Radio Four D M ශ්‍රාවක ඔබගේ විශේෂ අවධානයට, දැන් වේලාව {time_phrase}යි. රැඳී සිටින්න අප සමඟ."
 
 def _generate_gemini_live_sync(gemini_key: str, text: str, voice_name: str, is_sinhala: bool, out_mp3: str) -> bool:
     """Generate high-fidelity human speech via Gemini Multimodal Live Native Audio API."""

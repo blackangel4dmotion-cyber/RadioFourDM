@@ -7,6 +7,11 @@ from streamer import station_engine
 from tts_engine import generate_speech_file_sync, get_sinhala_time_text, CACHE_DIR
 from news_engine import fetch_quick_news, build_news_broadcast_audio
 
+def get_colombo_time() -> datetime.datetime:
+    """Returns accurate Sri Lanka Standard Time (Asia/Colombo, UTC+5:30)."""
+    tz = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+    return datetime.datetime.now(tz)
+
 class HourlyTimeScheduler:
     def __init__(self):
         self.time_enabled = True
@@ -43,7 +48,7 @@ class HourlyTimeScheduler:
 
     def broadcast_time_sync(self) -> dict:
         """Broadcasts current time in lively Sinhala female RJ voice (Radio Four D M)."""
-        now = datetime.datetime.now()
+        now = get_colombo_time()
         text = get_sinhala_time_text(now.hour, now.minute, style="friendly_rj")
 
         audio_file = generate_speech_file_sync(
@@ -137,11 +142,11 @@ class HourlyTimeScheduler:
                 time.sleep(10)
 
     def _run_time_loop(self):
-        """Hourly Time Announcement at :00."""
-        print("[Scheduler] Hourly Sinhala Time & 10-Minute Quick News Poller active.")
+        """Hourly Time Announcement at :00 (Sri Lanka Time)."""
+        print("[Scheduler] Hourly Sinhala Time (Asia/Colombo UTC+5:30) & 10-Minute Quick News Poller active.")
         while True:
             try:
-                now = datetime.datetime.now()
+                now = get_colombo_time()
                 # Hourly Time Announcement at :00
                 if self.time_enabled and now.minute == 0 and 0 <= now.second <= 12:
                     if self.last_announced_hour != now.hour:
