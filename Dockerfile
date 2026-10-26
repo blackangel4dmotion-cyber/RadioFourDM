@@ -25,9 +25,9 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copy all application files
 COPY --chown=user:user . .
 
-# Ensure audio cache directories exist with write permissions
-RUN mkdir -p audio_cache audio_cache/prerendered && \
-    chmod -R 777 audio_cache
+# Ensure audio cache, static, and templates directories exist with write permissions
+RUN mkdir -p audio_cache audio_cache/prerendered static templates && \
+    chmod -R 777 audio_cache static templates
 
 # Switch to non-root user
 USER user

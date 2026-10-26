@@ -6,6 +6,7 @@ import time
 import requests
 import subprocess
 import imageio_ffmpeg
+from typing import Optional, Dict, Any, List
 from gtts import gTTS
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
