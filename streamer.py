@@ -512,36 +512,36 @@ class AudioStationEngine:
 
         audio_url = entry.get('url')
 
-            title = entry.get("title", "Unknown Title")
-            original_url = entry.get("webpage_url", youtube_url_or_query)
+        title = entry.get("title", "Unknown Title")
+        original_url = entry.get("webpage_url", youtube_url_or_query)
 
-            # Deduplication check
-            if self.is_duplicate(title, original_url):
-                print(f"[Queue] Duplicate track ignored: {title}")
-                raise ValueError(f"'{title}' is already in queue or currently playing!")
+        # Deduplication check
+        if self.is_duplicate(title, original_url):
+            print(f"[Queue] Duplicate track ignored: {title}")
+            raise ValueError(f"'{title}' is already in queue or currently playing!")
 
-            # Strict 6-minute maximum limit per song
-            raw_duration = entry.get("duration", 0)
-            if raw_duration and raw_duration > 360:
-                print(f"[Queue] Song exceeds 6 minutes limit ({raw_duration}s): {title}")
-                raise ValueError(f"ගීතයක උපරිම කාලය විනාඩි 6 කි (Maximum song duration is 6:00). '{title}' is {time.strftime('%M:%S', time.gmtime(raw_duration))}.")
+        # Strict 6-minute maximum limit per song
+        raw_duration = entry.get("duration", 0)
+        if raw_duration and raw_duration > 360:
+            print(f"[Queue] Song exceeds 6 minutes limit ({raw_duration}s): {title}")
+            raise ValueError(f"ගීතයක උපරිම කාලය විනාඩි 6 කි (Maximum song duration is 6:00). '{title}' is {time.strftime('%M:%S', time.gmtime(raw_duration))}.")
 
-            track = {
-                "id": str(int(time.time() * 1000)),
-                "type": "youtube",
-                "title": title,
-                "duration": entry.get("duration", 0),
-                "duration_str": time.strftime('%M:%S', time.gmtime(entry.get("duration", 0))),
-                "thumbnail": entry.get("thumbnail", ""),
-                "uploader": entry.get("uploader", "YouTube"),
-                "stream_url": audio_url,
-                "original_url": original_url,
-                "added_at": time.strftime("%H:%M:%S")
-            }
+        track = {
+            "id": str(int(time.time() * 1000)),
+            "type": "youtube",
+            "title": title,
+            "duration": entry.get("duration", 0),
+            "duration_str": time.strftime('%M:%S', time.gmtime(entry.get("duration", 0))),
+            "thumbnail": entry.get("thumbnail", ""),
+            "uploader": entry.get("uploader", "YouTube"),
+            "stream_url": audio_url,
+            "original_url": original_url,
+            "added_at": time.strftime("%H:%M:%S")
+        }
 
-            with self.lock:
-                self.playlist.append(track)
-            return track
+        with self.lock:
+            self.playlist.append(track)
+        return track
 
     def inject_priority_audio(self, audio_file_path: str, title: str, audio_type: str = "ad", play_immediately: bool = True):
         """Inject voiceover for real-time audio ducking (music lowers to 18%, never stops)."""

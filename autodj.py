@@ -235,37 +235,37 @@ class AutoDJEngine:
 
         audio_url = entry.get('url')
 
-            title = f"[{item.get('category', 'Hit')}] {entry.get('title', item['title'])}"
-            original_url = entry.get("webpage_url", "")
+        title = f"[{item.get('category', 'Hit')}] {entry.get('title', item['title'])}"
+        original_url = entry.get("webpage_url", "")
 
-            # Strict duplicate check on resolved YouTube title and URL
-            if self.station_engine.is_duplicate(title, original_url):
-                print(f"[AutoDJ] Duplicate detected post-extraction, skipping: {title}")
-                return None
+        # Strict duplicate check on resolved YouTube title and URL
+        if self.station_engine.is_duplicate(title, original_url):
+            print(f"[AutoDJ] Duplicate detected post-extraction, skipping: {title}")
+            return None
 
-            # Strict 6-minute maximum limit per song
-            raw_dur = entry.get("duration", 0)
-            if raw_dur and raw_dur > 360:
-                print(f"[AutoDJ] Track exceeds 6 minutes ({raw_dur}s), skipping: {title}")
-                return None
+        # Strict 6-minute maximum limit per song
+        raw_dur = entry.get("duration", 0)
+        if raw_dur and raw_dur > 360:
+            print(f"[AutoDJ] Track exceeds 6 minutes ({raw_dur}s), skipping: {title}")
+            return None
 
-            track = {
-                "id": f"autodj_{int(time.time() * 1000)}",
-                "type": "youtube",
-                "title": title,
-                "duration": entry.get("duration", 0),
-                "duration_str": time.strftime('%M:%S', time.gmtime(entry.get("duration", 0))),
-                "thumbnail": entry.get("thumbnail", ""),
-                "uploader": entry.get("uploader", item.get("artist", "Auto-DJ")),
-                "stream_url": audio_url,
-                "original_url": original_url,
-                "added_at": time.strftime("%H:%M:%S")
-            }
+        track = {
+            "id": f"autodj_{int(time.time() * 1000)}",
+            "type": "youtube",
+            "title": title,
+            "duration": entry.get("duration", 0),
+            "duration_str": time.strftime('%M:%S', time.gmtime(entry.get("duration", 0))),
+            "thumbnail": entry.get("thumbnail", ""),
+            "uploader": entry.get("uploader", item.get("artist", "Auto-DJ")),
+            "stream_url": audio_url,
+            "original_url": original_url,
+            "added_at": time.strftime("%H:%M:%S")
+        }
 
-            with self.station_engine.lock:
-                self.station_engine.playlist.append(track)
-            print(f"[AutoDJ] Queued random song: {track['title']}")
-            return track
+        with self.station_engine.lock:
+            self.station_engine.playlist.append(track)
+        print(f"[AutoDJ] Queued random song: {track['title']}")
+        return track
 
     def load_preset_chart(self, chart_type: str = "mixed", count: int = 5) -> List[Dict[str, Any]]:
         """Loads a random selection of unplayed songs from the chosen chart."""
