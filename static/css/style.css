@@ -29,6 +29,19 @@ body {
         radial-gradient(circle at 10% 10%, rgba(59, 130, 246, 0.06) 0%, transparent 40%),
         radial-gradient(circle at 90% 90%, rgba(236, 72, 153, 0.06) 0%, transparent 40%);
     overflow-x: hidden;
+    overflow-y: scroll !important;
+}
+
+/* Highly visible neon scrollbar so users know there is more below */
+::-webkit-scrollbar {
+    width: 10px;
+}
+::-webkit-scrollbar-track {
+    background: #0f172a;
+}
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #3b82f6, #8b5cf6);
+    border-radius: 5px;
 }
 
 /* Container adapts gracefully to standard laptop screens */

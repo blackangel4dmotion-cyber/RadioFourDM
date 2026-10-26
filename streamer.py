@@ -467,9 +467,10 @@ class AudioStationEngine:
             'quiet': True,
             'no_warnings': True,
             'default_search': 'ytsearch',
+            'source_address': '0.0.0.0',
             'extractor_args': {
                 'youtube': {
-                    'player_client': ['tv', 'mweb', 'android', 'web']
+                    'player_client': ['android', 'ios', 'mweb']
                 }
             }
         }

@@ -1,10 +1,11 @@
 FROM python:3.11-slim
 
-# Install system dependencies (FFmpeg is required for audio mixing and encoding)
+# Install system dependencies (FFmpeg for audio mixing, Node.js for yt-dlp YouTube challenge solver)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     curl \
     git \
+    nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 # Set up non-root user (Hugging Face Spaces default UID is 1000)
