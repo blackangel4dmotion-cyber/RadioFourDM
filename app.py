@@ -342,6 +342,18 @@ async def skip_track():
     station_engine.skip()
     return {"status": "success", "message": "Crossfading into next track..."}
 
+class OnAirRequest(BaseModel):
+    on_air: Optional[bool] = None
+
+@app.post("/api/control/on-air")
+async def toggle_master_on_air(req: OnAirRequest):
+    """Toggle or set Master Broadcast ON AIR / OFF AIR."""
+    if req.on_air is None:
+        state = station_engine.toggle_on_air()
+    else:
+        state = station_engine.set_on_air(req.on_air)
+    return {"status": "success", "on_air": state}
+
 class PreRenderedVoiceRequest(BaseModel):
     clip: str
 

@@ -116,6 +116,8 @@ class Deck:
         if header_str:
             cmd.extend(["-headers", header_str])
         cmd.extend([
+            "-probesize", "32",
+            "-analyzeduration", "0",
             "-reconnect", "1",
             "-reconnect_streamed", "1",
             "-reconnect_delay_max", "5",
@@ -209,10 +211,11 @@ class AudioStationEngine:
         # Active SFX overlays playing concurrently
         self.active_sfx_list: List[Dict[str, Any]] = []
         
-        # Pre-buffered burst buffer stores ~50KB of MP3 frames for instant player start
-        self.burst_buffer = collections.deque(maxlen=25)
+        # Ultra-low latency minimal burst buffer (~4KB = ~0.25s) for instant live start without time delay
+        self.burst_buffer = collections.deque(maxlen=2)
         
         self.is_running = False
+        self.is_on_air = True # Master Station ON AIR / OFF AIR state
         
         # Dual DJ Decks for seamless crossfading
         self.deck_a = Deck("A")
@@ -399,6 +402,20 @@ class AudioStationEngine:
             print(f"[DJ Mixer] SFX trigger error: {e}")
         return False
 
+    def set_on_air(self, state: bool) -> bool:
+        """Switch Master Station ON AIR / OFF AIR."""
+        with self.lock:
+            self.is_on_air = bool(state)
+            print(f"[Master Station] ON AIR set to: {'ON AIR' if self.is_on_air else 'OFF AIR'}")
+            return self.is_on_air
+
+    def toggle_on_air(self) -> bool:
+        """Toggle Master Station ON AIR / OFF AIR state."""
+        with self.lock:
+            self.is_on_air = not self.is_on_air
+            print(f"[Master Station] ON AIR toggled to: {'ON AIR' if self.is_on_air else 'OFF AIR'}")
+            return self.is_on_air
+
     def _start_master_encoder(self):
         """Starts a single persistent ultra-low latency MP3 encoder process outputting live broadcast."""
         encoder_cmd = [
@@ -413,6 +430,7 @@ class AudioStationEngine:
             "-ac", "2",
             "-flush_packets", "1",
             "-fflags", "+nobuffer+flush_packets",
+            "-flags", "low_delay",
             "-f", "mp3",
             "pipe:1"
         ]
@@ -429,13 +447,14 @@ class AudioStationEngine:
     def _pump_encoder_to_listeners(self):
         while self.is_running:
             try:
-                chunk = self.encoder_process.stdout.read(2048)
+                # 1024 bytes at 128kbps = ~64ms for minimal buffering latency
+                chunk = self.encoder_process.stdout.read(1024)
                 if not chunk:
-                    time.sleep(0.005)
+                    time.sleep(0.003)
                     continue
                 self.broadcast_chunk(chunk)
             except Exception:
-                time.sleep(0.02)
+                time.sleep(0.01)
 
     def get_listener_count(self) -> int:
         with self.lock:
@@ -488,14 +507,66 @@ class AudioStationEngine:
                 if dc in self.clients:
                     self.clients.remove(dc)
 
+    def _resolve_youtube_title(self, url: str) -> Optional[Dict[str, str]]:
+        """Ultra-fast, unblocked resolution of YouTube URL to clean song title and artist via oEmbed (0.2s)."""
+        import urllib.request
+        import urllib.parse
+        import json
+        try:
+            safe_url = urllib.parse.quote(url.strip(), safe=':/?=&')
+            oembed_url = f"https://www.youtube.com/oembed?url={safe_url}&format=json"
+            req = urllib.request.Request(oembed_url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+            with urllib.request.urlopen(req, timeout=3.5) as resp:
+                data = json.loads(resp.read().decode('utf-8'))
+                raw_title = data.get("title", "")
+                author = data.get("author_name", "YouTube Artist")
+                if raw_title:
+                    clean = re.sub(r'[\(\[\{].*?[\)\]\}]', '', raw_title) # Remove (Official Video), [4K], etc.
+                    clean = re.sub(r'[^\w\s\u0D80-\u0DFF]', ' ', clean)
+                    clean = re.sub(r'\s+', ' ', clean).strip()
+                    return {"raw_title": raw_title, "clean_title": clean or raw_title, "author": author}
+        except Exception as e:
+            print(f"[oEmbed] YouTube resolution skipped: {e}")
+        return None
+
     def add_youtube_track(self, youtube_url_or_query: str) -> Dict[str, Any]:
         entry = None
-        is_url = bool(re.match(r'^https?://', youtube_url_or_query.strip(), re.I))
+        is_yt_url = bool(re.search(r'(?:youtube\.com|youtu\.be)', youtube_url_or_query.strip(), re.I))
+        is_sc_url = bool(re.search(r'soundcloud\.com', youtube_url_or_query.strip(), re.I))
+        yt_meta = None
 
-        # 1. If text search query, use ultra-fast SoundCloud search first (0.8s resolution, 0 bot checks)
-        if not is_url:
+        # 1. If YouTube URL, resolve title instantly via public oEmbed (never blocked by BotGuard, 0.2s)
+        if is_yt_url:
+            yt_meta = self._resolve_youtube_title(youtube_url_or_query)
+            if yt_meta:
+                search_query = yt_meta["clean_title"]
+                print(f"[Queue] Resolved YouTube link via oEmbed: '{yt_meta['raw_title']}' -> Searching: '{search_query}'")
+                try:
+                    sc_query = f"scsearch5:{search_query}"
+                    ydl_opts_sc = {
+                        'format': 'bestaudio/best',
+                        'quiet': True,
+                        'no_warnings': True,
+                        'socket_timeout': 6
+                    }
+                    with yt_dlp.YoutubeDL(ydl_opts_sc) as ydl:
+                        info = ydl.extract_info(sc_query, download=False)
+                        entries = info.get('entries') or ([info] if info and info.get('url') else [])
+                        for cand in entries:
+                            dur = cand.get('duration', 0)
+                            if dur >= 60 and dur <= 360 and cand.get('url'):
+                                entry = cand
+                                entry['title'] = yt_meta['raw_title']
+                                entry['uploader'] = yt_meta['author']
+                                print(f"[Queue] Matched full SoundCloud stream for YouTube link: {entry['title']} ({dur}s)")
+                                break
+                except Exception as sc_err:
+                    print(f"[Queue] SoundCloud lookup for YouTube link error: {sc_err}")
+
+        # 2. If regular text query, search SoundCloud directly with multi-result duration filtering
+        if not entry and not is_yt_url and not is_sc_url:
             try:
-                sc_query = f"scsearch1:{youtube_url_or_query.strip()}"
+                sc_query = f"scsearch5:{youtube_url_or_query.strip()}"
                 ydl_opts_sc = {
                     'format': 'bestaudio/best',
                     'quiet': True,
@@ -504,16 +575,19 @@ class AudioStationEngine:
                 }
                 with yt_dlp.YoutubeDL(ydl_opts_sc) as ydl:
                     info = ydl.extract_info(sc_query, download=False)
-                    if 'entries' in info and len(info['entries']) > 0:
-                        entry = info['entries'][0]
-                    elif info and info.get('url'):
-                        entry = info
-                    if entry and entry.get('url'):
-                        print(f"[Queue] Fast SoundCloud search hit: {entry.get('title')}")
+                    entries = info.get('entries') or ([info] if info and info.get('url') else [])
+                    for cand in entries:
+                        dur = cand.get('duration', 0)
+                        if dur >= 60 and dur <= 360 and cand.get('url'):
+                            entry = cand
+                            print(f"[Queue] Fast SoundCloud query hit: {entry.get('title')} ({dur}s)")
+                            break
+                    if not entry and entries:
+                        entry = entries[0]
             except Exception as sc_err:
                 print(f"[Queue] Fast SoundCloud search failed: {sc_err}")
 
-        # 2. Try YouTube extraction if URL or if SoundCloud search didn't find results
+        # 3. Direct extraction fallback for SoundCloud URL or if previous steps didn't resolve
         if not entry or not entry.get('url'):
             try:
                 ydl_opts = {
@@ -522,7 +596,7 @@ class AudioStationEngine:
                     'no_warnings': True,
                     'default_search': 'ytsearch',
                     'source_address': '0.0.0.0',
-                    'socket_timeout': 6,
+                    'socket_timeout': 5,
                     'extractor_args': {
                         'youtube': {
                             'player_client': ['android', 'ios', 'mweb']
@@ -536,35 +610,12 @@ class AudioStationEngine:
                     elif info and info.get('url'):
                         entry = info
             except Exception as yt_err:
-                print(f"[Queue] YouTube extraction failed ({yt_err}). Falling back to SoundCloud...")
-
-        # 3. Fallback to SoundCloud if direct YouTube URL was blocked by BotGuard
-        if not entry or not entry.get('url'):
-            try:
-                clean_q = re.sub(r'https?://[^\s]+', '', youtube_url_or_query).strip() or youtube_url_or_query
-                sc_query = f"scsearch1:{clean_q}"
-                ydl_opts_sc = {
-                    'format': 'bestaudio/best',
-                    'quiet': True,
-                    'no_warnings': True,
-                    'socket_timeout': 6
-                }
-                with yt_dlp.YoutubeDL(ydl_opts_sc) as ydl:
-                    info = ydl.extract_info(sc_query, download=False)
-                    if 'entries' in info and len(info['entries']) > 0:
-                        entry = info['entries'][0]
-                    elif info and info.get('url'):
-                        entry = info
-                    if entry and entry.get('url'):
-                        print(f"[Queue] Fallback to SoundCloud succeeded: {entry.get('title')}")
-            except Exception as sc_err:
-                print(f"[Queue] SoundCloud fallback error: {sc_err}")
+                print(f"[Queue] Extraction failed ({yt_err})")
 
         if not entry or not entry.get('url'):
-            raise ValueError("Could not extract direct audio stream from YouTube or SoundCloud.")
+            raise ValueError("Could not extract playable audio stream. Please check link or search term.")
 
         audio_url = entry.get('url')
-
         title = entry.get("title", "Unknown Title")
         original_url = entry.get("webpage_url", youtube_url_or_query)
 
@@ -711,19 +762,25 @@ class AudioStationEngine:
             active_deck = self.deck_a if self.deck_a.volume >= self.deck_b.volume else self.deck_b
             current_track = active_deck.track
             
-            if self.current_voice_info:
+            if not self.is_on_air:
+                clean_display = {
+                    "title": "Station OFF AIR (Master Broadcast Muted)",
+                    "type": "offair",
+                    "uploader": "Radio 4DM Master Switch"
+                }
+            elif self.current_voice_info:
                 display_track = {
                     "title": self.current_voice_info.get("title"),
                     "type": self.current_voice_info.get("type"),
                     "uploader": f"Radio RJ (Voiceover Ducking active) • Music: {current_track.get('title') if current_track else 'Station'}",
                     "is_ducking": True
                 }
+                clean_display = display_track
             else:
-                display_track = current_track
-
-            clean_display = {k: v for k, v in display_track.items() if k != "http_headers"} if display_track else None
+                clean_display = {k: v for k, v in current_track.items() if k != "http_headers"} if current_track else None
 
             return {
+                "is_on_air": self.is_on_air,
                 "listeners": len(self.clients),
                 "current_track": clean_display,
                 "bg_volume_pct": int(self.master_duck_vol * 100),
@@ -901,7 +958,11 @@ class AudioStationEngine:
                 else:
                     output_pcm = music_mixed + sfx_combined
 
-                final_mixed = np.clip(output_pcm, -32768, 32767).astype(np.int16)
+                if self.is_on_air:
+                    final_mixed = np.clip(output_pcm, -32768, 32767).astype(np.int16)
+                else:
+                    # OFF-AIR: Feed silence to encoder so listeners hear nothing and master output is muted
+                    final_mixed = np.zeros(CHUNK_SIZE // 2, dtype=np.int16)
 
                 if self.encoder_process and self.encoder_process.stdin:
                     self.encoder_process.stdin.write(final_mixed.tobytes())

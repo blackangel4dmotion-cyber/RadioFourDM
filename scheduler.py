@@ -122,8 +122,13 @@ class HourlyTimeScheduler:
                 self.last_news_id = news_id
                 print(f"[News Poller] New Quick News detected ({news_id}): '{news_data['headline']}'. Generating Gemini speech...")
                 audio_file = build_news_broadcast_audio(news_data)
-                # Queue to broadcast cleanly between songs (after currently playing song ends, before next song starts)
-                station_engine.set_pending_transition_news(audio_file, title=news_data["headline"])
+                # Broadcast immediately OVER the currently playing song with Audio Ducking (music volume lowered, song NOT muted)
+                station_engine.inject_priority_audio(
+                    audio_file_path=audio_file,
+                    title=f"Radio Four D M එසැණ පුවත්: {news_data['headline'][:35]}...",
+                    audio_type="news",
+                    play_immediately=True
+                )
         except Exception as e:
             print(f"[News Poller] Error checking quick news: {e}")
 
