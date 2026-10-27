@@ -70,6 +70,9 @@ class SearchRequest(BaseModel):
     query: str
     limit: Optional[int] = 5
 
+class GeminiVerifyRequest(BaseModel):
+    api_key: str
+
 class ConfigUpdateRequest(BaseModel):
     tts_provider: Optional[str] = "gemini"
     gemini_api_key: Optional[str] = None
@@ -178,6 +181,76 @@ async def update_system_config(req: ConfigUpdateRequest):
     
     save_config(cfg)
     return {"status": "success", "config": cfg}
+
+@app.get("/api/config/gemini-status")
+async def get_gemini_status_endpoint():
+    cfg = load_config()
+    key = cfg.get("gemini_api_key", "").strip() or os.getenv("GEMINI_API_KEY", "").strip()
+    if not key:
+        return {
+            "configured": False,
+            "valid": False,
+            "masked_key": "",
+            "message": "No Gemini API key configured"
+        }
+    
+    # Fast test with Google GenAI
+    try:
+        from google import genai
+        client = genai.Client(api_key=key)
+        # Attempt to list one model
+        for _ in client.models.list():
+            break
+        masked = f"{key[:6]}...{key[-4:]}" if len(key) > 10 else "***"
+        return {
+            "configured": True,
+            "valid": True,
+            "masked_key": masked,
+            "message": "Gemini AI API Key verified and active"
+        }
+    except Exception as e:
+        masked = f"{key[:6]}...{key[-4:]}" if len(key) > 10 else "***"
+        return {
+            "configured": True,
+            "valid": False,
+            "masked_key": masked,
+            "message": f"Auth error: {str(e)[:120]}"
+        }
+
+@app.post("/api/config/verify-gemini")
+async def verify_and_save_gemini_key(req: GeminiVerifyRequest):
+    key = req.api_key.strip()
+    if not key:
+        raise HTTPException(status_code=400, detail="Gemini API Key cannot be empty.")
+    
+    try:
+        from google import genai
+        client = genai.Client(api_key=key)
+        # Verify by querying models
+        for _ in client.models.list():
+            break
+        
+        # Save valid key
+        cfg = load_config()
+        cfg["gemini_api_key"] = key
+        cfg["tts_provider"] = "gemini"
+        save_config(cfg)
+        os.environ["GEMINI_API_KEY"] = key
+        
+        masked = f"{key[:6]}...{key[-4:]}" if len(key) > 10 else "***"
+        return {
+            "status": "success",
+            "valid": True,
+            "masked_key": masked,
+            "message": "Google Gemini API Key successfully verified and linked!"
+        }
+    except Exception as e:
+        err_msg = str(e)
+        return {
+            "status": "error",
+            "valid": False,
+            "detail": err_msg
+        }
 
 # DJ Mixer Controls
 @app.post("/api/dj/sfx")
