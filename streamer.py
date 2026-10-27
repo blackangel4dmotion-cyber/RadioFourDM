@@ -14,10 +14,15 @@ import imageio_ffmpeg
 from tts_engine import load_config
 
 # Get FFmpeg executable path
-try:
-    FFMPEG_EXE = imageio_ffmpeg.get_ffmpeg_exe()
-except Exception:
-    FFMPEG_EXE = "ffmpeg"
+import shutil
+if shutil.which("ffmpeg"):
+    FFMPEG_EXE = shutil.which("ffmpeg")
+else:
+    try:
+        import imageio_ffmpeg
+        FFMPEG_EXE = imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception:
+        FFMPEG_EXE = "ffmpeg"
 
 CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "audio_cache")
 SILENCE_FILE = os.path.join(CACHE_DIR, "silence.mp3")
@@ -55,6 +60,14 @@ class Deck:
             try:
                 data = proc.stdout.read(CHUNK_SIZE)
                 if not data or len(data) == 0:
+                    rc = proc.poll()
+                    err = ""
+                    if proc.stderr:
+                        try:
+                            err = proc.stderr.read().decode('utf-8', errors='ignore')
+                        except Exception:
+                            pass
+                    print(f"[DJ Deck {self.name}] FFmpeg EOF / Done. Code: {rc}. Stderr: {err[-300:]}")
                     self.eof_reached = True
                     break
                 if len(data) < CHUNK_SIZE:
@@ -70,7 +83,8 @@ class Deck:
                     self.audio_queue.put(data, timeout=0.5)
                 except Exception:
                     pass
-            except Exception:
+            except Exception as e:
+                print(f"[DJ Deck {self.name}] Reader error: {e}")
                 self.eof_reached = True
                 break
 
@@ -91,8 +105,12 @@ class Deck:
         self.stop_signal.clear()
         self.is_active = True
 
-        headers = track.get("http_headers") or {}
-        header_str = "".join([f"{k}: {v}\r\n" for k, v in headers.items()]) if headers else "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36\r\n"
+        headers = dict(track.get("http_headers") or {})
+        if "referer" not in [k.lower() for k in headers.keys()]:
+            headers["Referer"] = "https://soundcloud.com/"
+        if "user-agent" not in [k.lower() for k in headers.keys()]:
+            headers["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        header_str = "".join([f"{k}: {v}\r\n" for k, v in headers.items()])
 
         cmd = [FFMPEG_EXE]
         if header_str:
@@ -112,7 +130,7 @@ class Deck:
             self.process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
                 bufsize=10**6
             )
             self.reader_thread = threading.Thread(target=self._reader_worker, args=(self.process,), daemon=True)
@@ -156,7 +174,8 @@ class Deck:
             return data
         except queue.Empty:
             self.current_rms_db = -60.0
-            if self.eof_reached:
+            # Allow 3.0s network buffer grace period before stopping on EOF
+            if self.eof_reached and self.elapsed_sec > 3.0:
                 self.stop()
             return b"\x00" * CHUNK_SIZE
 

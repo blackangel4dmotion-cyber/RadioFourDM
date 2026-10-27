@@ -245,10 +245,10 @@ class AutoDJEngine:
             print(f"[AutoDJ] Duplicate detected post-extraction, skipping: {title}")
             return None
 
-        # Strict 6-minute maximum limit per song
+        # Strict duration check: filter out 30s snippets (<60s) and long mixes (>360s)
         raw_dur = entry.get("duration", 0)
-        if raw_dur and raw_dur > 360:
-            print(f"[AutoDJ] Track exceeds 6 minutes ({raw_dur}s), skipping: {title}")
+        if raw_dur and (raw_dur < 60 or raw_dur > 360):
+            print(f"[AutoDJ] Invalid song duration ({raw_dur}s), skipping preview/long mix: {title}")
             return None
 
         track = {
@@ -299,30 +299,32 @@ class AutoDJEngine:
         return added
 
     def _autodj_loop(self):
-        print("[AutoDJ] Auto-DJ 24/7 Engine Loop active (Random Shuffle Mode).")
+        print("[AutoDJ] Auto-DJ 24/7 Engine Loop active (Fast Standby Preload Mode).")
         time.sleep(2)
         
         while self.is_running:
             try:
-                should_fetch = False
-                with self.lock:
-                    if self.enabled:
-                        with self.station_engine.lock:
-                            # Keep 10-song standby chart fully loaded at all times
-                            if len(self.station_engine.playlist) < 10:
-                                should_fetch = True
-
-                if should_fetch and not self.is_fetching:
-                    self.is_fetching = True
-                    item = self.get_next_unplayed_catalog_item()
-                    if item:
-                        try:
-                            self.queue_single_chart_item(item)
-                        except Exception as e:
-                            print(f"[AutoDJ] Failed to auto-queue: {e}")
-                    self.is_fetching = False
-
+                if self.enabled:
+                    # Keep 10-song standby chart fully loaded at all times
+                    while len(self.station_engine.playlist) < 10 and self.is_running and self.enabled:
+                        item = self.get_next_unplayed_catalog_item()
+                        if not item:
+                            # Reset history to allow fresh continuous rotation
+                            with self.station_engine.lock:
+                                self.station_engine.played_history.clear()
+                            item = self.get_next_unplayed_catalog_item()
+                        if item:
+                            try:
+                                t = self.queue_single_chart_item(item)
+                                if not t:
+                                    time.sleep(0.3)
+                            except Exception as e:
+                                print(f"[AutoDJ] Auto-queue error: {e}")
+                                time.sleep(0.3)
+                        else:
+                            break
+                        time.sleep(0.8)
             except Exception as e:
                 print(f"[AutoDJ] Loop error: {e}")
 
-            time.sleep(8)
+            time.sleep(5)
