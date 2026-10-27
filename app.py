@@ -101,7 +101,15 @@ class TaglineRequest(BaseModel):
 async def serve_index():
     index_file = os.path.join(TEMPLATES_DIR, "index.html")
     with open(index_file, "r", encoding="utf-8") as f:
-        return f.read()
+        content = f.read()
+    return HTMLResponse(
+        content=content,
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
+    )
 
 @app.get("/stream")
 def audio_stream():
