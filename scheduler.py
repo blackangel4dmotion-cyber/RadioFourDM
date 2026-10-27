@@ -4,7 +4,7 @@ import threading
 import datetime
 import asyncio
 from streamer import station_engine
-from tts_engine import generate_speech_file_sync, get_sinhala_time_text, CACHE_DIR
+from tts_engine import generate_speech_file_sync, get_sinhala_time_text, get_tagline_info, STATION_TAGLINES, CACHE_DIR
 from news_engine import fetch_quick_news, build_news_broadcast_audio
 
 def get_colombo_time() -> datetime.datetime:
@@ -19,14 +19,18 @@ class HourlyTimeScheduler:
         self.last_announced_hour = -1
         self.last_news_id = None
         self.last_polled_news_time = 0
+        self.last_tagline_time = time.time()
         self.lock = threading.Lock()
         
-        # Threads for hourly time and 10-minute quick news poller
+        # Threads for hourly time, 10-minute quick news poller, and automatic Radio ID drops
         self.worker_thread = threading.Thread(target=self._run_time_loop, daemon=True)
         self.worker_thread.start()
         
         self.news_poller_thread = threading.Thread(target=self._run_news_poller, daemon=True)
         self.news_poller_thread.start()
+
+        self.tagline_thread = threading.Thread(target=self._run_tagline_loop, daemon=True)
+        self.tagline_thread.start()
 
     def set_enabled(self, state: bool):
         with self.lock:
@@ -165,5 +169,47 @@ class HourlyTimeScheduler:
                 print(f"[Scheduler] Time loop error: {e}")
 
             time.sleep(6)
+
+    def broadcast_tagline_sync(self, tagline_id: str = None) -> dict:
+        """Broadcasts Radio 4DM official Station ID / Tagline fittingly over music (Ducking to 20%)."""
+        info = get_tagline_info(tagline_id)
+        audio_file = generate_speech_file_sync(
+            text=info["text"],
+            voice_key=info["voice"],
+            lang=info["lang"],
+            provider="gemini",
+            filename_prefix="tagline",
+            add_chime=True
+        )
+        station_engine.inject_priority_audio(
+            audio_file_path=audio_file,
+            title=f"Radio 4DM Station ID • {info['title']}",
+            audio_type="tagline",
+            play_immediately=True
+        )
+        self.last_tagline_time = time.time()
+        print(f"[Radio ID Engine] Broadcasted Station ID Tagline: {info['title']}")
+        return {"status": "success", "title": info["title"], "text": info["text"]}
+
+    def _run_tagline_loop(self):
+        """
+        Periodically announces Station Radio ID (every 7-8 minutes) fittingly over active tracks,
+        remixes, and long DJ sets with music ducking (down to 20%).
+        """
+        time.sleep(90) # Initial warmup delay
+        while True:
+            try:
+                # Check if at least 7 minutes (420s) passed since last voice broadcast
+                elapsed_since_last = time.time() - self.last_tagline_time
+                if elapsed_since_last >= 420:
+                    # Only drop Radio ID if music is actively playing and no other voice is queued
+                    has_active_music = (station_engine.deck_a.is_active or station_engine.deck_b.is_active)
+                    has_pending_voice = bool(station_engine.current_voice_pcm) or bool(station_engine.voice_queue)
+                    if has_active_music and not has_pending_voice and station_engine.is_on_air:
+                        self.broadcast_tagline_sync()
+            except Exception as e:
+                print(f"[Radio ID Engine] Loop error: {e}")
+
+            time.sleep(15)
 
 time_scheduler = HourlyTimeScheduler()

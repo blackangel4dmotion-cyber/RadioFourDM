@@ -92,8 +92,8 @@ class Deck:
         self.stop()
         self.track = track
         raw_dur = float(track.get("duration", 0) or 0)
-        # Cap single song duration at strictly 6 minutes (360 seconds) max
-        self.duration_sec = min(raw_dur if raw_dur > 0 else 360.0, 360.0)
+        # Support full tracks of any length (Remixes, DJ non-stop sets, Long tracks)
+        self.duration_sec = raw_dur if raw_dur > 0 else 0.0
         self.elapsed_sec = 0.0
         self.volume = initial_volume
         self.target_volume = target_volume
@@ -166,9 +166,6 @@ class Deck:
         try:
             data = self.audio_queue.get_nowait()
             self.elapsed_sec += 0.100
-            # Strict 6-minute cap: stop track if it exceeds 360 seconds
-            if self.elapsed_sec >= 360.0:
-                self.eof_reached = True
             if data and len(data) >= 100:
                 samples = np.frombuffer(data, dtype=np.int16).astype(np.float32)
                 rms = np.sqrt(np.mean(samples ** 2))
@@ -564,7 +561,7 @@ class AudioStationEngine:
                         entries = info.get('entries') or ([info] if info and info.get('url') else [])
                         for cand in entries:
                             dur = cand.get('duration', 0)
-                            if dur >= 60 and dur <= 360 and cand.get('url'):
+                            if dur >= 45 and cand.get('url'):
                                 entry = cand
                                 entry['title'] = yt_meta['raw_title']
                                 entry['uploader'] = yt_meta['author']
@@ -588,7 +585,7 @@ class AudioStationEngine:
                     entries = info.get('entries') or ([info] if info and info.get('url') else [])
                     for cand in entries:
                         dur = cand.get('duration', 0)
-                        if dur >= 60 and dur <= 360 and cand.get('url'):
+                        if dur >= 45 and cand.get('url'):
                             entry = cand
                             print(f"[Queue] Fast SoundCloud query hit: {entry.get('title')} ({dur}s)")
                             break
@@ -644,12 +641,6 @@ class AudioStationEngine:
         if is_active_now:
             print(f"[Queue] Duplicate track ignored: {title}")
             raise ValueError(f"'{title}' is already in queue or currently playing!")
-
-        # Strict 6-minute maximum limit per song
-        raw_duration = entry.get("duration", 0)
-        if raw_duration and raw_duration > 360:
-            print(f"[Queue] Song exceeds 6 minutes limit ({raw_duration}s): {title}")
-            raise ValueError(f"ගීතයක උපරිම කාලය විනාඩි 6 කි (Maximum song duration is 6:00). '{title}' is {time.strftime('%M:%S', time.gmtime(raw_duration))}.")
 
         track = {
             "id": str(int(time.time() * 1000)),
@@ -857,10 +848,6 @@ class AudioStationEngine:
             if active_deck.is_active and not next_deck.is_active and not self.is_playing_transition_news:
                 if active_deck.eof_reached or active_deck.target_volume == 0.0:
                     should_crossfade = True
-                elif active_deck.elapsed_sec >= 360.0:
-                    # Enforce strict 6-minute maximum single-song limit
-                    print(f"[DJ Mixer] 6-minute limit reached for {active_deck.track.get('title') if active_deck.track else 'Track'}. Transitioning to next song...")
-                    should_crossfade = True
                 elif active_deck.duration_sec > 10 and time_left <= crossfade_sec:
                     # Seamless Equal-Power crossfade: starts BEFORE outgoing track decibels drop,
                     # matching incoming song to that exact decibel level for continuous gapless sound
@@ -904,7 +891,11 @@ class AudioStationEngine:
             voice_chunk = None
 
             if self.current_voice_pcm is not None:
-                target_duck = float(cfg.get("ducking_volume", 0.18))
+                vtype = (self.current_voice_info.get("type") if self.current_voice_info else "") or ""
+                if vtype == "news":
+                    target_duck = 0.10  # Duck music volume to 10% for crisp, audible news
+                else:
+                    target_duck = 0.20  # Duck music volume to 20% for voice commands, ads, and taglines
                 end_pos = self.voice_pos + CHUNK_SIZE
                 voice_chunk = self.current_voice_pcm[self.voice_pos:end_pos]
                 self.voice_pos = end_pos

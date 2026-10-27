@@ -189,7 +189,7 @@ class AutoDJEngine:
         entry = None
         # 1. Fast SoundCloud query first (Zero bot checks, instant 0.5s resolution in Cloud Datacenters)
         try:
-            sc_query = f"scsearch1:{item.get('title')}"
+            sc_query = f"scsearch5:{item.get('title')}"
             ydl_opts_sc = {
                 'format': 'bestaudio/best',
                 'quiet': True,
@@ -198,12 +198,13 @@ class AutoDJEngine:
             }
             with yt_dlp.YoutubeDL(ydl_opts_sc) as ydl:
                 info = ydl.extract_info(sc_query, download=False)
-                if 'entries' in info and len(info['entries']) > 0:
-                    entry = info['entries'][0]
-                elif info and info.get('url'):
-                    entry = info
-                if entry and entry.get('url'):
-                    print(f"[AutoDJ] Fast SoundCloud hit: {entry.get('title')}")
+                entries = info.get('entries') or ([info] if info and info.get('url') else [])
+                for cand in entries:
+                    dur = cand.get('duration', 0)
+                    if dur >= 45 and cand.get('url'):
+                        entry = cand
+                        print(f"[AutoDJ] Fast SoundCloud hit: {entry.get('title')} ({dur}s)")
+                        break
         except Exception as sc_err:
             print(f"[AutoDJ] SoundCloud attempt: {sc_err}")
 
@@ -245,10 +246,10 @@ class AutoDJEngine:
             print(f"[AutoDJ] Duplicate detected post-extraction, skipping: {title}")
             return None
 
-        # Strict duration check: filter out 30s snippets (<60s) and long mixes (>360s)
+        # Filter out 30s snippets (<45s); allow long mixes and DJ remixes
         raw_dur = entry.get("duration", 0)
-        if raw_dur and (raw_dur < 60 or raw_dur > 360):
-            print(f"[AutoDJ] Invalid song duration ({raw_dur}s), skipping preview/long mix: {title}")
+        if raw_dur and raw_dur < 45:
+            print(f"[AutoDJ] Invalid short snippet duration ({raw_dur}s), skipping: {title}")
             return None
 
         track = {
