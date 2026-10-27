@@ -187,51 +187,50 @@ class AutoDJEngine:
             return None
 
         entry = None
-        # 1. Fast SoundCloud query first (Zero bot checks, instant 0.5s resolution in Cloud Datacenters)
+        # 1. Primary: Direct YouTube extraction with Android/iOS/Web client headers
         try:
-            sc_query = f"scsearch5:{item.get('title')}"
-            ydl_opts_sc = {
+            ydl_opts = {
                 'format': 'bestaudio/best',
                 'quiet': True,
                 'no_warnings': True,
-                'socket_timeout': 6
+                'default_search': 'ytsearch',
+                'source_address': '0.0.0.0',
+                'socket_timeout': 6,
+                'extractor_args': {
+                    'youtube': {
+                        'player_client': ['android', 'ios', 'mweb']
+                    }
+                }
             }
-            with yt_dlp.YoutubeDL(ydl_opts_sc) as ydl:
-                info = ydl.extract_info(sc_query, download=False)
-                entries = info.get('entries') or ([info] if info and info.get('url') else [])
-                for cand in entries:
-                    dur = cand.get('duration', 0)
-                    if dur >= 45 and cand.get('url'):
-                        entry = cand
-                        print(f"[AutoDJ] Fast SoundCloud hit: {entry.get('title')} ({dur}s)")
-                        break
-        except Exception as sc_err:
-            print(f"[AutoDJ] SoundCloud attempt: {sc_err}")
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(query, download=False)
+                if 'entries' in info and len(info['entries']) > 0:
+                    entry = info['entries'][0]
+                elif info and info.get('url'):
+                    entry = info
+        except Exception as yt_err:
+            print(f"[AutoDJ] YouTube attempt: {yt_err}")
 
-        # 2. YouTube extraction fallback if SoundCloud didn't return
+        # 2. SoundCloud fallback if YouTube didn't return
         if not entry or not entry.get('url'):
             try:
-                ydl_opts = {
+                sc_query = f"scsearch3:{item.get('title')}"
+                ydl_opts_sc = {
                     'format': 'bestaudio/best',
                     'quiet': True,
                     'no_warnings': True,
-                    'default_search': 'ytsearch',
-                    'source_address': '0.0.0.0',
-                    'socket_timeout': 6,
-                    'extractor_args': {
-                        'youtube': {
-                            'player_client': ['android', 'ios', 'mweb']
-                        }
-                    }
+                    'socket_timeout': 6
                 }
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    info = ydl.extract_info(query, download=False)
-                    if 'entries' in info and len(info['entries']) > 0:
-                        entry = info['entries'][0]
-                    elif info and info.get('url'):
-                        entry = info
-            except Exception as yt_err:
-                print(f"[AutoDJ] YouTube fallback failed ({yt_err})")
+                with yt_dlp.YoutubeDL(ydl_opts_sc) as ydl:
+                    info = ydl.extract_info(sc_query, download=False)
+                    entries = info.get('entries') or ([info] if info and info.get('url') else [])
+                    for cand in entries:
+                        dur = cand.get('duration', 0)
+                        if dur >= 45 and cand.get('url'):
+                            entry = cand
+                            break
+            except Exception as sc_err:
+                print(f"[AutoDJ] SoundCloud fallback failed: {sc_err}")
 
         if not entry or not entry.get('url'):
             return None
@@ -263,7 +262,8 @@ class AutoDJEngine:
             "stream_url": audio_url,
             "original_url": original_url,
             "http_headers": entry.get("http_headers", {}),
-            "added_at": time.strftime("%H:%M:%S")
+            "added_at": time.strftime("%H:%M:%S"),
+            "resolved_at": time.time()
         }
 
         with self.station_engine.lock:

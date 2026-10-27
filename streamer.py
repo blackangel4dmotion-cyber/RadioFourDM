@@ -34,6 +34,53 @@ except Exception:
 
 CHUNK_SIZE = 17640 # 100ms of 44100Hz 16-bit Stereo PCM (4410 * 4 bytes)
 
+def resolve_fresh_stream_url(track: Dict[str, Any]) -> str:
+    """
+    Ensures the stream URL passed to FFmpeg is fresh, active, and has not expired.
+    YouTube and SoundCloud direct CDN URLs expire after a few minutes with 403 Forbidden.
+    This dynamically re-resolves the direct stream URL before playback if older than 3 minutes.
+    """
+    now = time.time()
+    existing_url = track.get("stream_url", "")
+    resolved_at = track.get("resolved_at", 0)
+
+    # If URL is less than 3 minutes old and valid, use it directly
+    if existing_url and (now - resolved_at < 180):
+        return existing_url
+
+    query = track.get("original_url") or track.get("query") or track.get("title")
+    if not query:
+        return existing_url
+
+    try:
+        ydl_opts = {
+            'format': 'bestaudio/best',
+            'quiet': True,
+            'no_warnings': True,
+            'default_search': 'ytsearch1',
+            'source_address': '0.0.0.0',
+            'socket_timeout': 6,
+            'extractor_args': {
+                'youtube': {
+                    'player_client': ['android', 'ios', 'mweb']
+                }
+            }
+        }
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(query, download=False)
+            entry = info['entries'][0] if ('entries' in info and len(info['entries']) > 0) else info
+            if entry and entry.get('url'):
+                fresh_url = entry['url']
+                track['stream_url'] = fresh_url
+                track['http_headers'] = entry.get('http_headers', {})
+                track['resolved_at'] = now
+                print(f"[Deck] Dynamically refreshed fresh stream URL for: {track.get('title')}")
+                return fresh_url
+    except Exception as e:
+        print(f"[Deck] Dynamic stream resolve error for '{track.get('title')}': {e}")
+
+    return existing_url
+
 class Deck:
     """Represents a virtual DJ Deck (Deck A or Deck B) with non-blocking pre-buffering."""
     def __init__(self, name: str):
@@ -54,6 +101,7 @@ class Deck:
         self.reader_thread: Optional[threading.Thread] = None
         self.stop_signal = threading.Event()
         self.has_audio_flowing: bool = False
+        self.empty_count: int = 0
 
     def _reader_worker(self, proc):
         while not self.stop_signal.is_set():
@@ -61,13 +109,7 @@ class Deck:
                 data = proc.stdout.read(CHUNK_SIZE)
                 if not data or len(data) == 0:
                     rc = proc.poll()
-                    err = ""
-                    if proc.stderr:
-                        try:
-                            err = proc.stderr.read().decode('utf-8', errors='ignore')
-                        except Exception:
-                            pass
-                    print(f"[DJ Deck {self.name}] FFmpeg EOF / Done. Code: {rc}. Stderr: {err[-300:]}")
+                    print(f"[DJ Deck {self.name}] FFmpeg finished/EOF. Code: {rc}")
                     self.eof_reached = True
                     break
                 if len(data) < CHUNK_SIZE:
@@ -95,6 +137,7 @@ class Deck:
         # Support full tracks of any length (Remixes, DJ non-stop sets, Long tracks)
         self.duration_sec = raw_dur if raw_dur > 0 else 0.0
         self.elapsed_sec = 0.0
+        self.empty_count = 0
         self.volume = initial_volume
         self.target_volume = target_volume
         
@@ -105,23 +148,33 @@ class Deck:
         self.stop_signal.clear()
         self.is_active = True
 
+        # Dynamically refresh stream_url so signed tokens never 403
+        fresh_url = resolve_fresh_stream_url(track)
+        if not fresh_url:
+            fresh_url = track.get("stream_url", "")
+
         headers = dict(track.get("http_headers") or {})
-        if "referer" not in [k.lower() for k in headers.keys()]:
-            headers["Referer"] = "https://soundcloud.com/"
-        if "user-agent" not in [k.lower() for k in headers.keys()]:
+        # Only inject soundcloud referer if it is actually a soundcloud URL
+        if "soundcloud.cloud" in fresh_url or "sndcdn.com" in fresh_url:
+            if "referer" not in [k.lower() for k in headers.keys()]:
+                headers["Referer"] = "https://soundcloud.com/"
+        elif "googlevideo.com" in fresh_url or "youtube.com" in fresh_url:
+            headers.pop("Referer", None)
+            headers.pop("referer", None)
             headers["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
         header_str = "".join([f"{k}: {v}\r\n" for k, v in headers.items()])
 
-        cmd = [FFMPEG_EXE]
+        cmd = [
+            FFMPEG_EXE,
+            "-reconnect", "1",
+            "-reconnect_streamed", "1",
+            "-reconnect_delay_max", "5"
+        ]
         if header_str:
             cmd.extend(["-headers", header_str])
         cmd.extend([
-            "-probesize", "32",
-            "-analyzeduration", "0",
-            "-reconnect", "1",
-            "-reconnect_streamed", "1",
-            "-reconnect_delay_max", "5",
-            "-i", track["stream_url"],
+            "-i", fresh_url,
             "-vn",
             "-f", "s16le",
             "-ac", "2",
@@ -132,7 +185,7 @@ class Deck:
             self.process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
                 bufsize=10**6
             )
             self.reader_thread = threading.Thread(target=self._reader_worker, args=(self.process,), daemon=True)
@@ -166,6 +219,7 @@ class Deck:
         try:
             data = self.audio_queue.get_nowait()
             self.elapsed_sec += 0.100
+            self.empty_count = 0
             if data and len(data) >= 100:
                 samples = np.frombuffer(data, dtype=np.int16).astype(np.float32)
                 rms = np.sqrt(np.mean(samples ** 2))
@@ -173,8 +227,10 @@ class Deck:
             return data
         except queue.Empty:
             self.current_rms_db = -60.0
-            # Allow 3.0s network buffer grace period before stopping on EOF
-            if self.eof_reached and self.elapsed_sec > 3.0:
+            self.empty_count += 1
+            # If EOF reached, or if no audio ever flowed and we've waited 3 seconds (30 cycles of 100ms):
+            if self.eof_reached or (not self.has_audio_flowing and self.empty_count > 30):
+                print(f"[DJ Deck {self.name}] Stream stalled or ended (has_flowed={self.has_audio_flowing}, eof={self.eof_reached}, elapsed={self.elapsed_sec}s). Auto-stopping to advance playlist!")
                 self.stop()
             return b"\x00" * CHUNK_SIZE
 
@@ -193,6 +249,7 @@ class Deck:
             try:
                 self.audio_queue.get_nowait()
             except queue.Empty:
+                break
                 break
 
 class AudioStationEngine:
@@ -653,7 +710,8 @@ class AudioStationEngine:
             "stream_url": audio_url,
             "original_url": original_url,
             "http_headers": entry.get("http_headers", {}),
-            "added_at": time.strftime("%H:%M:%S")
+            "added_at": time.strftime("%H:%M:%S"),
+            "resolved_at": time.time()
         }
 
         with self.lock:
@@ -725,6 +783,7 @@ class AudioStationEngine:
         track = dict(track_data)
         track["id"] = str(int(time.time() * 1000))
         track["added_at"] = time.strftime("%H:%M:%S")
+        track["resolved_at"] = time.time()
 
         with self.lock:
             self.playlist.append(track)
