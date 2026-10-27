@@ -600,38 +600,122 @@ async function loadRandomSingleTrack() {
     }
 }
 
-// Queue YouTube Track with Duplicate Alert
-youtubeForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const url = ytUrlInput.value.trim();
-    if (!url) return;
+let currentSearchResults = [];
 
-    addYtBtn.disabled = true;
+function closeSearchResults() {
+    const box = document.getElementById('searchResultsBox');
+    if (box) box.style.display = 'none';
+}
+
+async function addDirectSearchResult(index) {
+    const track = currentSearchResults[index];
+    if (!track) return;
+    
     ytFeedback.className = "fixed-feedback loading";
-    ytFeedback.textContent = "Searching & Queuing track / remix (High-speed stream resolver)...";
-
+    ytFeedback.textContent = `Adding "${track.title}" to standby queue...`;
+    
     try {
-        const res = await fetch('/api/queue/youtube', {
+        const res = await fetch('/api/queue/add-direct', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: url })
+            body: JSON.stringify(track)
         });
         const data = await res.json();
-
         if (res.ok) {
             ytFeedback.className = "fixed-feedback success";
-            ytFeedback.textContent = `Queued: ${data.track.title} (${data.track.duration_str || 'Full Track'})`;
-            ytUrlInput.value = "";
+            ytFeedback.textContent = `Queued: ${data.track.title} (${data.track.duration_str})`;
             fetchStatus();
         } else {
             ytFeedback.className = "fixed-feedback error";
-            ytFeedback.textContent = `${data.detail || "Failed to add song"}`;
+            ytFeedback.textContent = data.detail || "Track already in queue";
         }
     } catch (err) {
         ytFeedback.className = "fixed-feedback error";
-        ytFeedback.textContent = "Network error. Please try again.";
-    } finally {
-        addYtBtn.disabled = false;
+        ytFeedback.textContent = "Error adding track.";
+    }
+}
+
+// Queue YouTube / Online Track or Search Candidate
+youtubeForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const query = ytUrlInput.value.trim();
+    if (!query) return;
+
+    const isUrl = /^https?:\/\//i.test(query);
+
+    addYtBtn.disabled = true;
+    ytFeedback.className = "fixed-feedback loading";
+
+    if (isUrl) {
+        ytFeedback.textContent = "Linking direct YouTube / SoundCloud stream...";
+        try {
+            const res = await fetch('/api/queue/youtube', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: query })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                ytFeedback.className = "fixed-feedback success";
+                ytFeedback.textContent = `Queued: ${data.track.title} (${data.track.duration_str || 'Full Track'})`;
+                ytUrlInput.value = "";
+                closeSearchResults();
+                fetchStatus();
+            } else {
+                ytFeedback.className = "fixed-feedback error";
+                ytFeedback.textContent = `${data.detail || "Failed to add song"}`;
+            }
+        } catch (err) {
+            ytFeedback.className = "fixed-feedback error";
+            ytFeedback.textContent = "Network error. Please try again.";
+        } finally {
+            addYtBtn.disabled = false;
+        }
+    } else {
+        // Universal Search query: search online catalog and return top matching candidate tracks
+        ytFeedback.textContent = `Searching online catalog for "${query}"...`;
+        try {
+            const res = await fetch('/api/search/tracks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query: query, limit: 4 })
+            });
+            const data = await res.json();
+            if (res.ok && data.results && data.results.length > 0) {
+                currentSearchResults = data.results;
+                const box = document.getElementById('searchResultsBox');
+                const list = document.getElementById('searchResultsList');
+
+                // Render matching tracks with individual +Queue buttons
+                list.innerHTML = data.results.map((t, idx) => `
+                    <div class="search-item">
+                        <div class="search-item-info">
+                            <div class="search-item-title" title="${t.title}">${t.title}</div>
+                            <div class="search-item-meta">${t.uploader} • ⏱️ ${t.duration_str}</div>
+                        </div>
+                        <div class="search-item-actions">
+                            <button type="button" class="btn-search-add" onclick="addDirectSearchResult(${idx})" title="Add to Standby Queue">
+                                <i class="fa-solid fa-plus"></i> Queue
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+                box.style.display = 'block';
+
+                // Automatically queue the #1 top hit immediately
+                await addDirectSearchResult(0);
+                ytUrlInput.value = "";
+            } else {
+                ytFeedback.className = "fixed-feedback error";
+                ytFeedback.textContent = `No tracks found matching "${query}". Try another title.`;
+                closeSearchResults();
+            }
+        } catch (err) {
+            ytFeedback.className = "fixed-feedback error";
+            ytFeedback.textContent = "Search error. Please try again.";
+        } finally {
+            addYtBtn.disabled = false;
+        }
     }
 });
 
@@ -947,6 +1031,17 @@ async function fetchStatus() {
 
         // Update 10-Song Standby Playlist (With Pattern Reordering & Next Song Selection)
         queueCount.textContent = data.playlist ? data.playlist.length : 0;
+
+        // Auto-bootstrap 10 random mixed chart hits (Sinhala, English, Hindi) on initial app open if queue is empty
+        if ((!data.playlist || data.playlist.length === 0) && !window._bootstrappedInitialChart) {
+            window._bootstrappedInitialChart = true;
+            console.log("[AutoDJ] App open: bootstrapping 10 random mixed chart songs across all languages...");
+            fetch('/api/charts/load', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chart: 'mixed', count: 10 })
+            }).then(() => setTimeout(fetchStatus, 1500));
+        }
         if (data.playlist && data.playlist.length > 0) {
             playlistContainer.innerHTML = data.playlist.map((track, i) => `
                 <div class="playlist-item ${i === 0 ? 'is-next-track' : ''}">
