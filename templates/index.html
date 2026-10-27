@@ -342,17 +342,18 @@
                 <!-- 2. Queue Song -->
                 <div class="card yt-queue-card">
                     <div class="card-header">
-                        <h3><i class="fa-brands fa-youtube" style="color: #ff3333;"></i> Queue Song (Search or Link)</h3>
+                        <h3><i class="fa-brands fa-youtube" style="color: #ff3333;"></i> Song & Remix Search Console</h3>
+                        <span class="badge-deck" style="color:#60a5fa; border-color:#3b82f6;">All Lengths Supported</span>
                     </div>
                     <p class="section-desc">
-                        YouTube link එකක් paste කරන්න හෝ ගීතයේ නම search කරන්න (Deduplication enabled):
+                        ඕනෑම <strong>ගීතයක නමක්, Artist, DJ Remix හෝ YouTube Link</strong> එකක් මෙහි Type කර සෘජුවම Search කර Queue එකට Add කරන්න (Remix & Long Tracks Supported):
                     </p>
                     <form id="youtubeForm" class="control-form">
                         <div class="input-group">
                             <i class="fa-solid fa-magnifying-glass input-icon"></i>
-                            <input type="text" id="ytUrlInput" placeholder="උදා: Sanuka Saragaye / Arijit Kesariya / YouTube URL" required autocomplete="off">
+                            <input type="text" id="ytUrlInput" placeholder="සින්දුවේ නම / DJ Non-stop Remix / YouTube Link (උදා: Saragaye remix)..." required autocomplete="off">
                             <button type="submit" id="addYtBtn" class="btn btn-success btn-inline-add">
-                                <i class="fa-solid fa-plus"></i> Add Song
+                                <i class="fa-solid fa-magnifying-glass"></i> Search & Queue
                             </button>
                         </div>
                     </form>
