@@ -244,6 +244,61 @@ function toggleMute(deck) {
     });
 }
 
+function updateOnAirUI(isOnAir) {
+    const btn = document.getElementById('masterOnAirBtn');
+    const btnText = document.getElementById('masterOnAirBtnText');
+    const headerBadge = document.getElementById('headerLiveBadge');
+    const dot = document.getElementById('onAirDot');
+    const label = document.getElementById('onAirStatusLabel');
+
+    if (isOnAir) {
+        if (btn) {
+            btn.className = 'btn-on-air-master';
+            btn.title = 'Master is ON AIR. Click to Switch OFF AIR';
+        }
+        if (btnText) btnText.textContent = 'ON AIR';
+        if (headerBadge) {
+            headerBadge.className = 'badge-live';
+            headerBadge.textContent = 'ON AIR';
+        }
+        if (dot) dot.className = 'pulsing-dot';
+        if (label) {
+            label.textContent = 'MASTER ON AIR';
+            label.style.color = 'var(--accent-red)';
+        }
+    } else {
+        if (btn) {
+            btn.className = 'btn-on-air-master offair';
+            btn.title = 'Master is OFF AIR. Click to GO LIVE (ON AIR)';
+        }
+        if (btnText) btnText.textContent = 'OFF AIR';
+        if (headerBadge) {
+            headerBadge.className = 'badge-live offair';
+            headerBadge.textContent = 'OFF AIR';
+        }
+        if (dot) dot.className = 'pulsing-dot offair';
+        if (label) {
+            label.textContent = 'MASTER OFF AIR';
+            label.style.color = '#9ca3af';
+        }
+    }
+}
+
+async function toggleMasterOnAir() {
+    try {
+        const res = await fetch('/api/control/on-air', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+        });
+        const data = await res.json();
+        updateOnAirUI(data.on_air);
+        fetchStatus();
+    } catch (e) {
+        console.error("Toggle on-air error:", e);
+    }
+}
+
 // Queue item delete & clear
 async function deleteQueueItem(trackId) {
     try {
@@ -349,6 +404,9 @@ async function clearQueue() {
 // ==========================================
 let streamConnectTimeout = null;
 
+let isStreamManuallyPaused = false;
+let autoReconnectTimer = null;
+
 function resetPlayerUI(statusMsg) {
     if (streamConnectTimeout) {
         clearTimeout(streamConnectTimeout);
@@ -370,6 +428,7 @@ function setPlayerPlayingUI() {
     }
     isConnecting = false;
     isPlaying = true;
+    isStreamManuallyPaused = false;
     playBtn.innerHTML = '<i class="fa-solid fa-pause"></i> Pause Audio';
     playBtn.className = 'btn btn-secondary btn-play';
     masterDeckCard.classList.add('playing');
@@ -377,9 +436,26 @@ function setPlayerPlayingUI() {
     playerStatusTip.textContent = "Live Broadcast connected (Pro DJ Dual-Deck Stream).";
 }
 
+function handleStreamHiccup(eventReason) {
+    if (isStreamManuallyPaused || (!isPlaying && !isConnecting)) return;
+    if (autoReconnectTimer) return;
+    console.warn(`[Audio Watchdog] Stream interrupted (${eventReason}). Auto-reconnecting...`);
+    playerStatusTip.className = "fixed-status-line loading";
+    playerStatusTip.textContent = "Reconnecting master broadcast...";
+    autoReconnectTimer = setTimeout(() => {
+        autoReconnectTimer = null;
+        if (isStreamManuallyPaused) return;
+        radioAudio.src = `/stream?_t=${Date.now()}`;
+        radioAudio.play().then(setPlayerPlayingUI).catch(e => {
+            console.warn("[Audio Watchdog] Reconnect retry error:", e);
+        });
+    }, 1200);
+}
+
 playBtn.addEventListener('click', () => {
     // If playing or connecting, allow clicking to pause/cancel
     if (isPlaying || isConnecting) {
+        isStreamManuallyPaused = true;
         radioAudio.pause();
         radioAudio.removeAttribute('src');
         radioAudio.load();
@@ -387,6 +463,7 @@ playBtn.addEventListener('click', () => {
         return;
     }
 
+    isStreamManuallyPaused = false;
     isConnecting = true;
     playBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Connecting...';
     playBtn.className = 'btn btn-secondary btn-play';
@@ -414,7 +491,7 @@ playBtn.addEventListener('click', () => {
         }).catch((err) => {
             console.warn("Audio autoplay policy or stream buffering:", err);
             setTimeout(() => {
-                if (isConnecting && !isPlaying) {
+                if (isConnecting && !isPlaying && !isStreamManuallyPaused) {
                     radioAudio.play().then(setPlayerPlayingUI).catch(() => {
                         resetPlayerUI("Click Listen Live to connect audio.");
                     });
@@ -424,16 +501,25 @@ playBtn.addEventListener('click', () => {
     }
 });
 
-radioAudio.addEventListener('playing', setPlayerPlayingUI);
+radioAudio.addEventListener('playing', () => {
+    isStreamManuallyPaused = false;
+    setPlayerPlayingUI();
+});
 radioAudio.addEventListener('canplay', () => {
-    if (isConnecting && !isPlaying) {
+    if (isConnecting && !isPlaying && !isStreamManuallyPaused) {
         radioAudio.play().then(setPlayerPlayingUI).catch(() => {});
     }
 });
-radioAudio.addEventListener('error', (e) => {
-    console.error("Audio stream error:", e);
-    resetPlayerUI("Stream interrupted. Click Listen Live to reconnect.");
-});
+radioAudio.addEventListener('error', () => handleStreamHiccup('error'));
+radioAudio.addEventListener('ended', () => handleStreamHiccup('ended'));
+radioAudio.addEventListener('stalled', () => handleStreamHiccup('stalled'));
+
+// 5-second resilient watchdog: keeps playing continuously even on mobile sleep or network switch
+setInterval(() => {
+    if (isPlaying && !isConnecting && !isStreamManuallyPaused && radioAudio.paused) {
+        handleStreamHiccup('watchdog_paused');
+    }
+}, 5000);
 
 // Volume Control
 volumeSlider.addEventListener('input', (e) => {
@@ -765,6 +851,19 @@ async function fetchStatus() {
         const data = await res.json();
 
         listenerCount.textContent = data.listeners || 0;
+
+        // Master ON AIR state sync
+        if (data.is_on_air !== undefined) {
+            updateOnAirUI(data.is_on_air);
+        }
+
+        // Ultra-low latency sync: prevent time delay buildup between stream and visualizer
+        if (isPlaying && radioAudio.buffered && radioAudio.buffered.length > 0) {
+            const liveEnd = radioAudio.buffered.end(radioAudio.buffered.length - 1);
+            if (liveEnd - radioAudio.currentTime > 1.2) {
+                radioAudio.currentTime = liveEnd - 0.1;
+            }
+        }
 
         // Update Track Info
         if (data.current_track) {
