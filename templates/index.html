@@ -17,7 +17,7 @@
                     <i class="fa-solid fa-tower-broadcast"></i>
                 </div>
                 <div class="header-titles">
-                    <h1>RADIO 4DM <span class="badge-live">ON AIR</span></h1>
+                    <h1>RADIO 4DM <span class="badge-live" id="headerLiveBadge">ON AIR</span></h1>
                     <p class="subtitle">Radio 4DM Official Studio • DJ Dual-Deck Mixer • Real Girl Voice • Gemini AI</p>
                 </div>
             </div>
@@ -47,10 +47,13 @@
                 <div class="card master-deck-card">
                     <div class="card-header">
                         <div class="on-air-status">
-                            <span class="pulsing-dot"></span>
-                            <span class="status-label">MASTER ON AIR</span>
+                            <span class="pulsing-dot" id="onAirDot"></span>
+                            <span class="status-label" id="onAirStatusLabel">MASTER ON AIR</span>
                         </div>
                         <div class="deck-indicators">
+                            <button id="masterOnAirBtn" class="btn-on-air-master" onclick="toggleMasterOnAir()" title="Click to Switch ON AIR / OFF AIR">
+                                <i class="fa-solid fa-tower-broadcast"></i> <span id="masterOnAirBtnText">ON AIR</span>
+                            </button>
                             <span id="deckABadge" class="badge-deck active">DECK A</span>
                             <span id="deckBBadge" class="badge-deck">DECK B</span>
                             <span id="trackTypeBadge" class="track-badge music">MUSIC</span>
