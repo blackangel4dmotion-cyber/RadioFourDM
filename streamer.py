@@ -211,8 +211,8 @@ class AudioStationEngine:
         # Active SFX overlays playing concurrently
         self.active_sfx_list: List[Dict[str, Any]] = []
         
-        # Ultra-low latency minimal burst buffer (~4KB = ~0.25s) for instant live start without time delay
-        self.burst_buffer = collections.deque(maxlen=2)
+        # Smooth, drop-free burst buffer (16 chunks x 1024 bytes = 16KB = ~1.0s) prevents network drops
+        self.burst_buffer = collections.deque(maxlen=16)
         
         self.is_running = False
         self.is_on_air = True # Master Station ON AIR / OFF AIR state
@@ -418,6 +418,13 @@ class AudioStationEngine:
 
     def _start_master_encoder(self):
         """Starts a single persistent ultra-low latency MP3 encoder process outputting live broadcast."""
+        if self.encoder_process:
+            try:
+                self.encoder_process.terminate()
+            except Exception:
+                pass
+            self.encoder_process = None
+
         encoder_cmd = [
             FFMPEG_EXE,
             "-f", "s16le",
@@ -466,7 +473,8 @@ class AudioStationEngine:
         return b"\xff\xfb\x90d" * 128
 
     def subscribe_client(self) -> queue.Queue:
-        q = queue.Queue(maxsize=150)
+        # 300 chunks x 1024 bytes = ~18 seconds capacity (prevents queue overflow dropouts)
+        q = queue.Queue(maxsize=300)
         with self.lock:
             if self.burst_buffer:
                 for chunk in list(self.burst_buffer):
@@ -475,9 +483,9 @@ class AudioStationEngine:
                     except queue.Full:
                         break
             elif SILENCE_DATA:
-                for i in range(0, min(len(SILENCE_DATA), 65536), 2048):
+                for i in range(0, min(len(SILENCE_DATA), 65536), 1024):
                     try:
-                        q.put_nowait(SILENCE_DATA[i:i+2048])
+                        q.put_nowait(SILENCE_DATA[i:i+1024])
                     except queue.Full:
                         break
             self.clients.append(q)
@@ -492,12 +500,14 @@ class AudioStationEngine:
         with self.lock:
             self.burst_buffer.append(chunk)
             dead_clients = []
-            for client_q in self.clients:
+            for client_q in list(self.clients):
                 try:
                     client_q.put_nowait(chunk)
                 except queue.Full:
+                    # Client buffer is backed up. Drain older frames to catch up smoothly
                     try:
-                        client_q.get_nowait()
+                        for _ in range(40):
+                            client_q.get_nowait()
                         client_q.put_nowait(chunk)
                     except Exception:
                         dead_clients.append(client_q)

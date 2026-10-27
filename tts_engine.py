@@ -18,13 +18,13 @@ CONFIG_FILE = os.path.join(BASE_DIR, "config.json")
 # Default Config
 DEFAULT_CONFIG = {
     "tts_provider": "gemini", # 'gemini', 'elevenlabs', 'google', 'edge'
-    "gemini_api_key": "",
+    "gemini_api_key": "AQ.Ab8RN6LjvolQCy8Z4VPd0Bx5mTA-eokYDtSEzdAotYASoEwCvw",
     "elevenlabs_api_key": "",
     "elevenlabs_voice_id": "21m00Tcm4TlvDq8ikWAM",
     "crossfade_seconds": 6,
     "ducking_volume": 0.18,
     "style": "friendly_rj",
-    "station_name": "Radio 4DM"
+    "station_name": "Radio Four D M"
 }
 
 def load_config() -> dict:
