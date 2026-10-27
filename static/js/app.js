@@ -510,9 +510,17 @@ radioAudio.addEventListener('canplay', () => {
         radioAudio.play().then(setPlayerPlayingUI).catch(() => {});
     }
 });
-radioAudio.addEventListener('error', () => handleStreamHiccup('error'));
+radioAudio.addEventListener('error', (e) => {
+    console.warn("Audio element error event:", e);
+    handleStreamHiccup('error');
+});
 radioAudio.addEventListener('ended', () => handleStreamHiccup('ended'));
-radioAudio.addEventListener('stalled', () => handleStreamHiccup('stalled'));
+radioAudio.addEventListener('stalled', () => {
+    // Only reconnect if stream is genuinely paused and stalled (never interrupt while playing!)
+    if (radioAudio.paused && isPlaying) {
+        handleStreamHiccup('stalled_paused');
+    }
+});
 
 // 5-second resilient watchdog: keeps playing continuously even on mobile sleep or network switch
 setInterval(() => {
@@ -855,14 +863,6 @@ async function fetchStatus() {
         // Master ON AIR state sync
         if (data.is_on_air !== undefined) {
             updateOnAirUI(data.is_on_air);
-        }
-
-        // Ultra-low latency sync: prevent time delay buildup between stream and visualizer
-        if (isPlaying && radioAudio.buffered && radioAudio.buffered.length > 0) {
-            const liveEnd = radioAudio.buffered.end(radioAudio.buffered.length - 1);
-            if (liveEnd - radioAudio.currentTime > 1.2) {
-                radioAudio.currentTime = liveEnd - 0.1;
-            }
         }
 
         // Update Track Info
