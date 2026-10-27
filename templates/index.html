@@ -358,6 +358,13 @@
                         </div>
                     </form>
                     <div id="ytFeedback" class="fixed-feedback"></div>
+                    <div id="searchResultsBox" class="search-results-box" style="display:none;">
+                        <div class="search-results-header">
+                            <span><i class="fa-solid fa-list-check"></i> Matching Tracks (Select to Add):</span>
+                            <button type="button" class="btn-close-results" onclick="closeSearchResults()" title="Close">&times;</button>
+                        </div>
+                        <div id="searchResultsList" class="search-results-list"></div>
+                    </div>
                 </div>
 
                 <!-- 3. Playlist Queue: 10 Songs Standby Chart with Pattern & Priority Selection -->
