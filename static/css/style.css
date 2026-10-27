@@ -248,6 +248,46 @@ body {
     animation: pulse 1.5s infinite;
 }
 
+.pulsing-dot.offair {
+    background: #6b7280;
+    box-shadow: none;
+    animation: none;
+}
+
+.badge-live.offair {
+    background: #4b5563;
+    color: #d1d5db;
+    animation: none;
+}
+
+.btn-on-air-master {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: #fff;
+    border: 1px solid #f87171;
+    border-radius: 12px;
+    padding: 2px 9px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
+    transition: all 0.2s ease;
+}
+
+.btn-on-air-master:hover {
+    transform: scale(1.05);
+}
+
+.btn-on-air-master.offair {
+    background: #374151;
+    color: #9ca3af;
+    border-color: #4b5563;
+    box-shadow: none;
+}
+
 @keyframes pulse {
     0% { transform: scale(0.9); opacity: 0.8; }
     50% { transform: scale(1.2); opacity: 1; }
