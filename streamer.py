@@ -91,15 +91,23 @@ class Deck:
         self.stop_signal.clear()
         self.is_active = True
 
-        cmd = [
-            FFMPEG_EXE,
+        headers = track.get("http_headers") or {}
+        header_str = "".join([f"{k}: {v}\r\n" for k, v in headers.items()]) if headers else "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36\r\n"
+
+        cmd = [FFMPEG_EXE]
+        if header_str:
+            cmd.extend(["-headers", header_str])
+        cmd.extend([
+            "-reconnect", "1",
+            "-reconnect_streamed", "1",
+            "-reconnect_delay_max", "5",
             "-i", track["stream_url"],
             "-vn",
             "-f", "s16le",
             "-ac", "2",
             "-ar", "44100",
             "pipe:1"
-        ]
+        ])
         try:
             self.process = subprocess.Popen(
                 cmd,
@@ -573,6 +581,7 @@ class AudioStationEngine:
             "uploader": entry.get("uploader", "YouTube"),
             "stream_url": audio_url,
             "original_url": original_url,
+            "http_headers": entry.get("http_headers", {}),
             "added_at": time.strftime("%H:%M:%S")
         }
 
@@ -693,12 +702,14 @@ class AudioStationEngine:
             else:
                 display_track = current_track
 
+            clean_display = {k: v for k, v in display_track.items() if k != "http_headers"} if display_track else None
+
             return {
                 "listeners": len(self.clients),
-                "current_track": display_track,
+                "current_track": clean_display,
                 "bg_volume_pct": int(self.master_duck_vol * 100),
                 "playlist_count": len(self.playlist),
-                "playlist": [{k: v for k, v in t.items() if k != "stream_url"} for t in self.playlist[:15]],
+                "playlist": [{k: v for k, v in t.items() if k not in ("stream_url", "http_headers")} for t in self.playlist[:15]],
                 "voice_active": bool(self.current_voice_info),
                 "deck_a": {
                     "active": self.deck_a.is_active,

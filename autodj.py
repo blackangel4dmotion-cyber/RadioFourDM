@@ -261,6 +261,7 @@ class AutoDJEngine:
             "uploader": entry.get("uploader", item.get("artist", "Auto-DJ")),
             "stream_url": audio_url,
             "original_url": original_url,
+            "http_headers": entry.get("http_headers", {}),
             "added_at": time.strftime("%H:%M:%S")
         }
 
