@@ -660,6 +660,77 @@ class AudioStationEngine:
             self.playlist.append(track)
         return track
 
+    def search_tracks(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
+        """Searches for songs, remixes, and artist tracks, returning top matching candidates."""
+        query = query.strip()
+        if not query:
+            return []
+
+        results = []
+        is_yt_url = bool(re.search(r'(?:youtube\.com|youtu\.be)', query, re.I))
+        search_term = query
+        if is_yt_url:
+            yt_meta = self._resolve_youtube_title(query)
+            if yt_meta:
+                search_term = yt_meta["clean_title"]
+
+        try:
+            ydl_opts_sc = {
+                'format': 'bestaudio/best',
+                'quiet': True,
+                'no_warnings': True,
+                'socket_timeout': 6
+            }
+            with yt_dlp.YoutubeDL(ydl_opts_sc) as ydl:
+                info = ydl.extract_info(f"scsearch{limit}:{search_term}", download=False)
+                entries = info.get('entries') or ([info] if info and info.get('url') else [])
+                for e in entries:
+                    dur = e.get('duration', 0)
+                    if dur >= 45 and e.get('url'):
+                        results.append({
+                            "id": str(int(time.time() * 1000) + len(results)),
+                            "type": "youtube",
+                            "title": e.get("title", query),
+                            "duration": dur,
+                            "duration_str": time.strftime('%M:%S', time.gmtime(dur)),
+                            "thumbnail": e.get("thumbnail", ""),
+                            "uploader": e.get("uploader", "Online Stream"),
+                            "stream_url": e.get("url"),
+                            "original_url": e.get("webpage_url", query),
+                            "http_headers": e.get("http_headers", {}),
+                            "added_at": time.strftime("%H:%M:%S")
+                        })
+        except Exception as err:
+            print(f"[Search Engine] Error searching '{query}': {err}")
+
+        return results
+
+    def queue_track_direct(self, track_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Directly queues a pre-resolved track into the standby playlist with deduplication."""
+        title = track_data.get("title", "Unknown Track")
+        norm = self._normalize_title(title)
+        is_active_now = False
+        with self.lock:
+            for deck in [self.deck_a, self.deck_b]:
+                if deck.is_active and deck.track:
+                    if norm and norm == self._normalize_title(deck.track.get("title", "")):
+                        is_active_now = True
+            for t in self.playlist:
+                if norm and norm == self._normalize_title(t.get("title", "")):
+                    is_active_now = True
+
+        if is_active_now:
+            raise ValueError(f"'{title}' is already in queue or currently playing!")
+
+        track = dict(track_data)
+        track["id"] = str(int(time.time() * 1000))
+        track["added_at"] = time.strftime("%H:%M:%S")
+
+        with self.lock:
+            self.playlist.append(track)
+        print(f"[Queue Direct] Queued track: {track['title']} ({track.get('duration_str')})")
+        return track
+
     def inject_priority_audio(self, audio_file_path: str, title: str, audio_type: str = "ad", play_immediately: bool = True):
         """Inject voiceover for real-time audio ducking (music lowers to 18%, never stops)."""
         try:

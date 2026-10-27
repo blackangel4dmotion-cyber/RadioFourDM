@@ -280,9 +280,9 @@ class AutoDJEngine:
         elif chart_type == "english":
             catalog = [dict(x, category="English") for x in CHART_CATALOGS["english"]]
         else:
-            catalog = list(self.mixed_catalog)
+            catalog = get_mixed_chart()
 
-        # Randomly shuffle candidates so every click yields a fresh, random set
+        # Randomly shuffle candidates so every load yields a fresh, random set
         random.shuffle(catalog)
 
         added = []
@@ -301,8 +301,14 @@ class AutoDJEngine:
 
     def _autodj_loop(self):
         print("[AutoDJ] Auto-DJ 24/7 Engine Loop active (Fast Standby Preload Mode).")
-        time.sleep(2)
-        
+        # 1. Immediately preload 10-song random mixed chart across all languages on initial boot
+        try:
+            if self.enabled and len(self.station_engine.playlist) == 0:
+                print("[AutoDJ] Initial Boot: Preloading 10 random mixed songs (Sinhala, Hindi, English)...")
+                self.load_preset_chart("mixed", count=10)
+        except Exception as boot_err:
+            print(f"[AutoDJ] Startup preload error: {boot_err}")
+
         while self.is_running:
             try:
                 if self.enabled:

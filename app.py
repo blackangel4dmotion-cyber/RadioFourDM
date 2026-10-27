@@ -66,6 +66,10 @@ class ChartLoadRequest(BaseModel):
     chart: str = "mixed"
     count: int = 5
 
+class SearchRequest(BaseModel):
+    query: str
+    limit: Optional[int] = 5
+
 class ConfigUpdateRequest(BaseModel):
     tts_provider: Optional[str] = "gemini"
     gemini_api_key: Optional[str] = None
@@ -210,6 +214,25 @@ async def add_youtube_song(req: YouTubeRequest):
         raise HTTPException(status_code=409, detail=str(ve))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to load YouTube audio: {str(e)}")
+
+@app.post("/api/search/tracks")
+async def search_tracks_endpoint(req: SearchRequest):
+    """Search for songs and DJ remixes online returning top 4-5 candidates with metadata."""
+    if not req.query:
+        return {"status": "success", "results": []}
+    results = await asyncio.to_thread(station_engine.search_tracks, req.query, req.limit or 5)
+    return {"status": "success", "results": results}
+
+@app.post("/api/queue/add-direct")
+async def add_direct_track(track: dict):
+    """Directly queues a pre-resolved track into the standby playlist."""
+    try:
+        t = station_engine.queue_track_direct(track)
+        return {"status": "success", "track": t}
+    except ValueError as ve:
+        raise HTTPException(status_code=409, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/api/queue/{track_id}")
 async def delete_queue_song(track_id: str):
