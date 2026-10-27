@@ -608,7 +608,7 @@ youtubeForm.addEventListener('submit', async (e) => {
 
     addYtBtn.disabled = true;
     ytFeedback.className = "fixed-feedback loading";
-    ytFeedback.textContent = "Verifying & Linking YouTube stream...";
+    ytFeedback.textContent = "Searching & Queuing track / remix (High-speed stream resolver)...";
 
     try {
         const res = await fetch('/api/queue/youtube', {
@@ -620,7 +620,7 @@ youtubeForm.addEventListener('submit', async (e) => {
 
         if (res.ok) {
             ytFeedback.className = "fixed-feedback success";
-            ytFeedback.textContent = `Queued: ${data.track.title}`;
+            ytFeedback.textContent = `Queued: ${data.track.title} (${data.track.duration_str || 'Full Track'})`;
             ytUrlInput.value = "";
             fetchStatus();
         } else {
