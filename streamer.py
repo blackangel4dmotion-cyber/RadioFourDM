@@ -463,30 +463,55 @@ class AudioStationEngine:
 
     def add_youtube_track(self, youtube_url_or_query: str) -> Dict[str, Any]:
         entry = None
-        # 1. Try YouTube first
-        try:
-            ydl_opts = {
-                'format': 'bestaudio/best',
-                'quiet': True,
-                'no_warnings': True,
-                'default_search': 'ytsearch',
-                'source_address': '0.0.0.0',
-                'extractor_args': {
-                    'youtube': {
-                        'player_client': ['android', 'ios', 'mweb']
+        is_url = bool(re.match(r'^https?://', youtube_url_or_query.strip(), re.I))
+
+        # 1. If text search query, use ultra-fast SoundCloud search first (0.8s resolution, 0 bot checks)
+        if not is_url:
+            try:
+                sc_query = f"scsearch1:{youtube_url_or_query.strip()}"
+                ydl_opts_sc = {
+                    'format': 'bestaudio/best',
+                    'quiet': True,
+                    'no_warnings': True,
+                    'socket_timeout': 6
+                }
+                with yt_dlp.YoutubeDL(ydl_opts_sc) as ydl:
+                    info = ydl.extract_info(sc_query, download=False)
+                    if 'entries' in info and len(info['entries']) > 0:
+                        entry = info['entries'][0]
+                    elif info and info.get('url'):
+                        entry = info
+                    if entry and entry.get('url'):
+                        print(f"[Queue] Fast SoundCloud search hit: {entry.get('title')}")
+            except Exception as sc_err:
+                print(f"[Queue] Fast SoundCloud search failed: {sc_err}")
+
+        # 2. Try YouTube extraction if URL or if SoundCloud search didn't find results
+        if not entry or not entry.get('url'):
+            try:
+                ydl_opts = {
+                    'format': 'bestaudio/best',
+                    'quiet': True,
+                    'no_warnings': True,
+                    'default_search': 'ytsearch',
+                    'source_address': '0.0.0.0',
+                    'socket_timeout': 6,
+                    'extractor_args': {
+                        'youtube': {
+                            'player_client': ['android', 'ios', 'mweb']
+                        }
                     }
                 }
-            }
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(youtube_url_or_query, download=False)
-                if 'entries' in info and len(info['entries']) > 0:
-                    entry = info['entries'][0]
-                elif info and info.get('url'):
-                    entry = info
-        except Exception as yt_err:
-            print(f"[Queue] YouTube extraction failed ({yt_err}). Falling back to SoundCloud...")
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    info = ydl.extract_info(youtube_url_or_query, download=False)
+                    if 'entries' in info and len(info['entries']) > 0:
+                        entry = info['entries'][0]
+                    elif info and info.get('url'):
+                        entry = info
+            except Exception as yt_err:
+                print(f"[Queue] YouTube extraction failed ({yt_err}). Falling back to SoundCloud...")
 
-        # 2. Fallback to SoundCloud if YouTube triggers datacenter bot block
+        # 3. Fallback to SoundCloud if direct YouTube URL was blocked by BotGuard
         if not entry or not entry.get('url'):
             try:
                 clean_q = re.sub(r'https?://[^\s]+', '', youtube_url_or_query).strip() or youtube_url_or_query
@@ -494,7 +519,8 @@ class AudioStationEngine:
                 ydl_opts_sc = {
                     'format': 'bestaudio/best',
                     'quiet': True,
-                    'no_warnings': True
+                    'no_warnings': True,
+                    'socket_timeout': 6
                 }
                 with yt_dlp.YoutubeDL(ydl_opts_sc) as ydl:
                     info = ydl.extract_info(sc_query, download=False)
@@ -515,8 +541,19 @@ class AudioStationEngine:
         title = entry.get("title", "Unknown Title")
         original_url = entry.get("webpage_url", youtube_url_or_query)
 
-        # Deduplication check
-        if self.is_duplicate(title, original_url):
+        # Deduplication check: check if currently active or already waiting in playlist
+        norm = self._normalize_title(title)
+        is_active_now = False
+        with self.lock:
+            for deck in [self.deck_a, self.deck_b]:
+                if deck.is_active and deck.track:
+                    if norm and norm == self._normalize_title(deck.track.get("title", "")):
+                        is_active_now = True
+            for t in self.playlist:
+                if norm and norm == self._normalize_title(t.get("title", "")):
+                    is_active_now = True
+
+        if is_active_now:
             print(f"[Queue] Duplicate track ignored: {title}")
             raise ValueError(f"'{title}' is already in queue or currently playing!")
 

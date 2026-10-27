@@ -187,48 +187,50 @@ class AutoDJEngine:
             return None
 
         entry = None
-        # 1. Try YouTube first
+        # 1. Fast SoundCloud query first (Zero bot checks, instant 0.5s resolution in Cloud Datacenters)
         try:
-            ydl_opts = {
+            sc_query = f"scsearch1:{item.get('title')}"
+            ydl_opts_sc = {
                 'format': 'bestaudio/best',
                 'quiet': True,
                 'no_warnings': True,
-                'default_search': 'ytsearch',
-                'source_address': '0.0.0.0',
-                'extractor_args': {
-                    'youtube': {
-                        'player_client': ['android', 'ios', 'mweb']
-                    }
-                }
+                'socket_timeout': 6
             }
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(query, download=False)
+            with yt_dlp.YoutubeDL(ydl_opts_sc) as ydl:
+                info = ydl.extract_info(sc_query, download=False)
                 if 'entries' in info and len(info['entries']) > 0:
                     entry = info['entries'][0]
                 elif info and info.get('url'):
                     entry = info
-        except Exception as yt_err:
-            print(f"[AutoDJ] YouTube extraction failed ({yt_err}). Falling back to SoundCloud...")
+                if entry and entry.get('url'):
+                    print(f"[AutoDJ] Fast SoundCloud hit: {entry.get('title')}")
+        except Exception as sc_err:
+            print(f"[AutoDJ] SoundCloud attempt: {sc_err}")
 
-        # 2. If YouTube failed (e.g. Datacenter bot block), fallback to SoundCloud!
+        # 2. YouTube extraction fallback if SoundCloud didn't return
         if not entry or not entry.get('url'):
             try:
-                sc_query = f"scsearch1:{item.get('title')}"
-                ydl_opts_sc = {
+                ydl_opts = {
                     'format': 'bestaudio/best',
                     'quiet': True,
-                    'no_warnings': True
+                    'no_warnings': True,
+                    'default_search': 'ytsearch',
+                    'source_address': '0.0.0.0',
+                    'socket_timeout': 6,
+                    'extractor_args': {
+                        'youtube': {
+                            'player_client': ['android', 'ios', 'mweb']
+                        }
+                    }
                 }
-                with yt_dlp.YoutubeDL(ydl_opts_sc) as ydl:
-                    info = ydl.extract_info(sc_query, download=False)
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    info = ydl.extract_info(query, download=False)
                     if 'entries' in info and len(info['entries']) > 0:
                         entry = info['entries'][0]
                     elif info and info.get('url'):
                         entry = info
-                    if entry and entry.get('url'):
-                        print(f"[AutoDJ] Loaded catalog hit via SoundCloud: {entry.get('title')}")
-            except Exception as sc_err:
-                print(f"[AutoDJ] SoundCloud fallback error: {sc_err}")
+            except Exception as yt_err:
+                print(f"[AutoDJ] YouTube fallback failed ({yt_err})")
 
         if not entry or not entry.get('url'):
             return None
