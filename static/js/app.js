@@ -62,6 +62,12 @@ const modalGeminiKey = document.getElementById('modalGeminiKey');
 const modalCrossfadeSec = document.getElementById('modalCrossfadeSec');
 const modalDuckingVol = document.getElementById('modalDuckingVol');
 
+const geminiLiveStatusBadge = document.getElementById('geminiLiveStatusBadge');
+const geminiQuickKeyInput = document.getElementById('geminiQuickKeyInput');
+const geminiLinkBtn = document.getElementById('geminiLinkBtn');
+const geminiQuickStatus = document.getElementById('geminiQuickStatus');
+const geminiEyeIcon = document.getElementById('geminiEyeIcon');
+
 let isPlaying = false;
 let isConnecting = false;
 let isSinglishActive = true;
@@ -781,6 +787,28 @@ testTimeBtn.addEventListener('click', async () => {
     }
 });
 
+async function triggerColomboWeatherNow() {
+    const btn = document.getElementById('testWeatherBtn');
+    if (btn) btn.disabled = true;
+    if (timeStatusMsg) timeStatusMsg.textContent = "Fetching Colombo live weather & broadcasting RJ speech...";
+
+    try {
+        const res = await fetch('/api/weather/broadcast', { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+            if (timeStatusMsg) timeStatusMsg.textContent = `Colombo Weather Broadcasted!`;
+            fetchStatus();
+        }
+    } catch (err) {
+        if (timeStatusMsg) timeStatusMsg.textContent = "Error broadcasting weather.";
+    } finally {
+        setTimeout(() => {
+            if (btn) btn.disabled = false;
+            if (timeStatusMsg) timeStatusMsg.textContent = "";
+        }, 5000);
+    }
+}
+
 // Toggles
 if (schedulerToggle) {
     schedulerToggle.addEventListener('change', async (e) => {
@@ -902,13 +930,136 @@ window.addEventListener('keydown', (e) => {
     }
 });
 
+function toggleGeminiKeyVisibility() {
+    if (!geminiQuickKeyInput) return;
+    if (geminiQuickKeyInput.type === "password") {
+        geminiQuickKeyInput.type = "text";
+        if (geminiEyeIcon) {
+            geminiEyeIcon.classList.remove('fa-eye');
+            geminiEyeIcon.classList.add('fa-eye-slash');
+        }
+    } else {
+        geminiQuickKeyInput.type = "password";
+        if (geminiEyeIcon) {
+            geminiEyeIcon.classList.remove('fa-eye-slash');
+            geminiEyeIcon.classList.add('fa-eye');
+        }
+    }
+}
+
+async function checkGeminiStatus() {
+    try {
+        const res = await fetch('/api/config/gemini-status');
+        if (!res.ok) return;
+        const data = await res.json();
+        
+        if (data.valid) {
+            if (geminiLiveStatusBadge) {
+                geminiLiveStatusBadge.className = "badge-gemini-status online";
+                geminiLiveStatusBadge.innerHTML = `<i class="fa-solid fa-circle-check"></i> Gemini AI Active`;
+                geminiLiveStatusBadge.title = `Gemini AI is verified and linked (${data.masked_key})`;
+            }
+            if (geminiQuickStatus) {
+                geminiQuickStatus.className = "gemini-status-text ok";
+                geminiQuickStatus.innerHTML = `✅ Gemini Active & Verified (${data.masked_key})`;
+            }
+            if (geminiQuickKeyInput && !geminiQuickKeyInput.value) {
+                geminiQuickKeyInput.placeholder = `Active Key: ${data.masked_key} (Paste new key to change)`;
+            }
+            if (modalGeminiKey && !modalGeminiKey.value) {
+                modalGeminiKey.placeholder = `Active Key: ${data.masked_key}`;
+            }
+        } else {
+            if (geminiLiveStatusBadge) {
+                geminiLiveStatusBadge.className = "badge-gemini-status offline";
+                geminiLiveStatusBadge.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Not Linked (Fallback)`;
+                geminiLiveStatusBadge.title = data.message || "Gemini key not valid";
+            }
+            if (geminiQuickStatus) {
+                geminiQuickStatus.className = "gemini-status-text warn";
+                geminiQuickStatus.innerHTML = `⚠️ Gemini Key සම්බන්ධ වී නැත (Edge-TTS Backup ක්‍රියාත්මකයි). කරුණාකර aistudio.google.com යතුරක් ඇතුළත් කරන්න.`;
+            }
+        }
+    } catch (err) {
+        console.warn("Could not check Gemini status:", err);
+    }
+}
+
+async function verifyAndSaveGeminiKey() {
+    const rawKey = geminiQuickKeyInput ? geminiQuickKeyInput.value.trim() : "";
+    if (!rawKey) {
+        alert("කරුණාකර ඔබගේ Google Gemini API Key එක ඇතුළත් කරන්න.\n(Google AI Studio වෙතින් නොමිලේ ලබාගත හැක - AIzaSy... වලින් ආරම්භ වේ)");
+        return;
+    }
+
+    if (geminiLinkBtn) {
+        geminiLinkBtn.disabled = true;
+        geminiLinkBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Verifying...`;
+    }
+    if (geminiQuickStatus) {
+        geminiQuickStatus.className = "gemini-status-text";
+        geminiQuickStatus.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Google AI සමඟ සම්බන්ධතාවය පරීක්ෂා කෙරේ...`;
+    }
+
+    try {
+        const res = await fetch('/api/config/verify-gemini', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ api_key: rawKey })
+        });
+        const data = await res.json();
+        
+        if (data.valid) {
+            alert(`🎉 Google Gemini AI සාර්ථකව සම්බන්ධ විය!\nAPI Key: ${data.masked_key}\nදැන් Radio Four D M සජීවීව Gemini Live Voice භාවිතා කරයි.`);
+            if (geminiQuickKeyInput) geminiQuickKeyInput.value = "";
+            await checkGeminiStatus();
+        } else {
+            const errReason = data.detail || "Authentication Failed";
+            alert(`❌ Gemini Key සම්බන්ධ කළ නොහැකි විය!\n\nහේතුව: ${errReason}\n\nකරුණාකර aistudio.google.com/app/apikey වෙතින් ලබාගත් නිවැරදි API යතුර (AIzaSy...) භාවිතා කරන්න.`);
+            if (geminiQuickStatus) {
+                geminiQuickStatus.className = "gemini-status-text warn";
+                geminiQuickStatus.innerHTML = `❌ Key Error: ${errReason.substring(0, 80)}`;
+            }
+            if (geminiLiveStatusBadge) {
+                geminiLiveStatusBadge.className = "badge-gemini-status offline";
+                geminiLiveStatusBadge.innerHTML = `<i class="fa-solid fa-circle-xmark"></i> Invalid Key`;
+            }
+        }
+    } catch (e) {
+        alert("Server error: " + e.message);
+    } finally {
+        if (geminiLinkBtn) {
+            geminiLinkBtn.disabled = false;
+            geminiLinkBtn.innerHTML = `<i class="fa-solid fa-plug-circle-bolt"></i> Link & Test`;
+        }
+    }
+}
+
 async function saveStudioSettings() {
+    const rawGemini = modalGeminiKey ? modalGeminiKey.value.trim() : "";
+    if (rawGemini) {
+        try {
+            const vRes = await fetch('/api/config/verify-gemini', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ api_key: rawGemini })
+            });
+            const vData = await vRes.json();
+            if (!vData.valid) {
+                alert(`❌ Gemini API Key දෝෂයකි:\n${vData.detail || 'Invalid Key'}\nකරුණාකර aistudio.google.com යතුරක් යොදන්න.`);
+                return;
+            }
+        } catch (e) {
+            console.warn("Verify error:", e);
+        }
+    }
+
     const payload = {
         tts_provider: "gemini",
-        gemini_api_key: modalGeminiKey ? modalGeminiKey.value.trim() : "",
         crossfade_seconds: parseInt(modalCrossfadeSec ? modalCrossfadeSec.value : 6) || 6,
         ducking_volume: parseFloat(modalDuckingVol ? modalDuckingVol.value : 0.18) || 0.18
     };
+    if (rawGemini) payload.gemini_api_key = rawGemini;
 
     try {
         const res = await fetch('/api/config', {
@@ -919,6 +1070,7 @@ async function saveStudioSettings() {
         if (res.ok) {
             closeSettingsModal();
             alert("Settings saved successfully!");
+            checkGeminiStatus();
         }
     } catch (err) {
         alert("Error saving settings.");
@@ -1086,6 +1238,10 @@ async function fetchStatus() {
 // Initial fetch
 fetchStatus();
 setInterval(fetchStatus, 2000);
+
+// Check Gemini AI API status
+checkGeminiStatus();
+setInterval(checkGeminiStatus, 15000);
 
 // Ada Derana Live Headline Polling (Every 5 minutes)
 refreshAdaDeranaNews();
