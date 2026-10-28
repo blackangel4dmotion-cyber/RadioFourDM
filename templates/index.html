@@ -237,11 +237,31 @@
                 <!-- 1. Google Gemini Live AI Studio (Type & Speak) -->
                 <div class="card ad-card">
                     <div class="card-header">
-                        <h3><i class="fa-solid fa-wand-magic-sparkles" style="color: #f59e0b;"></i> ✨ Google Gemini Live AI Voice <span class="badge-gemini-active" title="Gemini AI Key is linked and active"><i class="fa-solid fa-circle-check"></i> Linked & Ready</span></h3>
+                        <h3><i class="fa-solid fa-wand-magic-sparkles" style="color: #f59e0b;"></i> ✨ Google Gemini Live AI Voice <span id="geminiLiveStatusBadge" class="badge-gemini-status" title="Checking Gemini API status..."><i class="fa-solid fa-spinner fa-spin"></i> Checking...</span></h3>
                         <button type="button" id="singlishToggleBtn" class="btn-singlish-toggle active" title="Toggle Helakuru Unicode typing (Shortcut: F12 / Ctrl+Space)">
                             <span class="toggle-dot"></span>
                             <span id="singlishToggleLabel">හෙළකුරු ➡️ සිංහල: ON (F12)</span>
                         </button>
+                    </div>
+
+                    <!-- Gemini Key Quick Link Bar -->
+                    <div class="gemini-key-box">
+                        <div class="gemini-key-row">
+                            <div class="gemini-input-wrap">
+                                <i class="fa-solid fa-key gemini-key-icon"></i>
+                                <input type="password" id="geminiQuickKeyInput" placeholder="Paste Gemini API Key (starts with AIzaSy...)..." autocomplete="off">
+                                <button type="button" class="btn-toggle-eye" onclick="toggleGeminiKeyVisibility()" title="Show/Hide Key"><i id="geminiEyeIcon" class="fa-regular fa-eye"></i></button>
+                            </div>
+                            <button type="button" id="geminiLinkBtn" class="btn btn-gemini-link" onclick="verifyAndSaveGeminiKey()">
+                                <i class="fa-solid fa-plug-circle-bolt"></i> Link & Test
+                            </button>
+                        </div>
+                        <div class="gemini-key-helper">
+                            <span id="geminiQuickStatus" class="gemini-status-text">Checking status...</span>
+                            <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener" class="gemini-get-link" title="Get Free Gemini Key from Google AI Studio">
+                                <i class="fa-solid fa-arrow-up-right-from-square"></i> Get 100% Free Gemini Key
+                            </a>
+                        </div>
                     </div>
 
                     <!-- Radio 4DM Multi-Accent Station Tagline Engine -->
@@ -381,21 +401,24 @@
                     </div>
                 </div>
 
-                <!-- 4. Hourly Radio Time Cast (:00) -->
+                <!-- 4. Hourly Radio Time Cast (:00) & Colombo Weather (:10) -->
                 <div class="card time-caster-card">
                     <div class="card-header">
-                        <h3><i class="fa-solid fa-bell" style="color: #10b981;"></i> Hourly Radio Time Cast (:00)</h3>
+                        <h3><i class="fa-solid fa-bell" style="color: #10b981;"></i> Hourly Time (:00) & Colombo Weather (:10)</h3>
                         <label class="switch" title="Toggle Auto Hourly Cast">
                             <input type="checkbox" id="schedulerToggle" checked>
                             <span class="slider round"></span>
                         </label>
                     </div>
                     <p class="section-desc">
-                        පැයෙන් පැයට Music Volume එක අඩුවී (Ducking), AI ස්වභාවික කාන්තා කටහඬින් වේලාව ප්‍රකාශ වේ.
+                        සෑම පැයකදීම (:00) නිවැරදි වේලාවත්, හරියටම විනාඩි 10 කට පසු (:10) කොළඹ සජීවී කාලගුණයත් (Colombo Live Weather) Music Ducking සමඟ ස්වයංක්‍රීයව ප්‍රකාශ වේ.
                     </p>
                     <div class="time-caster-actions">
                         <button id="testTimeBtn" class="btn btn-outline">
-                            <i class="fa-solid fa-volume-high"></i> Test RJ Time Cast Now
+                            <i class="fa-solid fa-clock"></i> Test Time Cast
+                        </button>
+                        <button id="testWeatherBtn" class="btn btn-outline" onclick="triggerColomboWeatherNow()">
+                            <i class="fa-solid fa-cloud-sun"></i> Test Colombo Weather
                         </button>
                         <span id="timeStatusMsg" class="status-tip"></span>
                     </div>
@@ -441,8 +464,8 @@
             <div class="modal-body">
                 <div class="setting-item">
                     <label>Google Gemini API Key (Dedicated Radio Voice):</label>
-                    <input type="password" id="modalGeminiKey" placeholder="AQ.Ab8RN6...">
-                    <small>Official Gemini API Key is configured and saved for Radio 4DM Studio.</small>
+                    <input type="password" id="modalGeminiKey" placeholder="Paste Gemini API Key (starts with AIzaSy...)">
+                    <small>Get your free lifetime API Key from <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener" style="color: #60a5fa;">Google AI Studio</a> (AIzaSy...).</small>
                 </div>
 
                 <div class="setting-row">
