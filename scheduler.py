@@ -3,9 +3,71 @@ import os
 import threading
 import datetime
 import asyncio
+import urllib.request
+import json
+import ssl
 from streamer import station_engine
 from tts_engine import generate_speech_file_sync, get_sinhala_time_text, get_tagline_info, STATION_TAGLINES, CACHE_DIR
 from news_engine import fetch_quick_news, build_news_broadcast_audio
+
+WEATHER_CODE_SINHALA = {
+    0: "හිරු රැසින් පිරි පැහැදිලි අහසක්",
+    1: "ප්‍රධාන වශයෙන් පැහැදිලි කාලගුණයක්",
+    2: "මඳ වශයෙන් වළාකුළු සහිත කාලගුණයක්",
+    3: "වළාකුළු සහිත අහසක්",
+    45: "මීදුම් සහිත තත්ත්වයක්",
+    48: "මීදුම් සහිත තත්ත්වයක්",
+    51: "සිහින් පොද වැසි සහිත තත්ත්වයක්",
+    53: "මධ්‍යස්ථ පොද වැසි සහිත තත්ත්වයක්",
+    55: "තද පොද වැසි සහිත තත්ත්වයක්",
+    61: "මඳ වැසි සහිත කාලගුණයක්",
+    63: "මධ්‍යස්ථ වැසි සහිත තත්ත්වයක්",
+    65: "තද වැසි සහිත තත්ත්වයක්",
+    80: "වැසි වාර කිහිපයක්",
+    81: "වැසි හෝ ගිගුරුම් සහිත වැසි",
+    82: "තද වැසි සහිත කාලගුණයක්",
+    95: "ගිගුරුම් සහිත වැසි තත්ත්වයක්",
+    96: "ගිගුරුම් සහිත වැසි තත්ත්වයක්",
+    99: "තද ගිගුරුම් සහිත වැසි තත්ත්වයක්"
+}
+
+def fetch_colombo_weather() -> dict:
+    """Fetches real-time weather metrics for Colombo, Sri Lanka (100% Free Open-Meteo, No API key)."""
+    try:
+        ctx = ssl._create_unverified_context()
+        url = (
+            "https://api.open-meteo.com/v1/forecast?"
+            "latitude=6.9271&longitude=79.8612&"
+            "current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m&"
+            "timezone=Asia%2FColombo"
+        )
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 RadioFourDM/2.0"})
+        with urllib.request.urlopen(req, context=ctx, timeout=8) as r:
+            data = json.loads(r.read().decode())
+            return data.get("current", {})
+    except Exception as e:
+        print(f"[Weather] Error fetching weather: {e}")
+        return {}
+
+def get_colombo_weather_text() -> str:
+    """Generates natural Sinhala radio RJ speech for Colombo live weather."""
+    try:
+        w = fetch_colombo_weather()
+        temp = round(w.get("temperature_2m", 30))
+        humidity = round(w.get("relative_humidity_2m", 75))
+        code = w.get("weather_code", 1)
+        condition = WEATHER_CODE_SINHALA.get(code, "සාමාන්‍ය කාලගුණික තත්ත්වයක්")
+        
+        text = (
+            f"Radio Four D M වෙතින් කොළඹ නගරයේ සජීවී කාලගුණ තොරතුරු. "
+            f"මේ වන විට කොළඹ ප්‍රදේශයේ උෂ්ණත්වය සෙල්සියස් අංශක {temp}ක් පමණ වන අතර, {condition} පවතී. "
+            f"සාපේක්ෂ ආර්ද්‍රතාවය සියයට {humidity}ක්. "
+            f"හොඳම ගීත සමඟින් දිගටම Radio Four D M සමඟ රැඳී සිටින්න!"
+        )
+        return text
+    except Exception as e:
+        print(f"[Weather] Error formatting weather text: {e}")
+        return "Radio Four D M වෙතින් කොළඹ නගරයේ සජීවී කාලගුණ තොරතුරු. මේ වන විට කොළඹ ප්‍රදේශයේ උෂ්ණත්වය සෙල්සියස් අංශක තිහක් පමණ වන අතර සාමාන්‍ය කාලගුණික තත්ත්වයක් පවතී."
 
 def get_colombo_time() -> datetime.datetime:
     """Returns accurate Sri Lanka Standard Time (Asia/Colombo, UTC+5:30)."""
@@ -17,6 +79,7 @@ class HourlyTimeScheduler:
         self.time_enabled = True
         self.news_enabled = True
         self.last_announced_hour = -1
+        self.last_weather_hour = -1
         self.last_news_id = None
         self.last_polled_news_time = 0
         self.last_tagline_time = time.time()
@@ -150,13 +213,39 @@ class HourlyTimeScheduler:
             for _ in range(60):
                 time.sleep(10)
 
+    def broadcast_weather_sync(self) -> dict:
+        """Broadcasts Colombo live weather announcement in friendly RJ voice (exactly 10 mins past the hour)."""
+        text = get_colombo_weather_text()
+        audio_file = generate_speech_file_sync(
+            text=text,
+            voice_key="si-female",
+            lang="si",
+            provider="gemini",
+            filename_prefix="weather_colombo",
+            add_chime=True
+        )
+        station_engine.inject_priority_audio(
+            audio_file_path=audio_file,
+            title=f"Radio Four D M කොළඹ කාලගුණය: {text[:35]}...",
+            audio_type="ad",
+            play_immediately=True
+        )
+        print(f"[Scheduler] Broadcasted Colombo Weather: {text[:60]}...")
+        return {"status": "success", "text": text}
+
+    async def broadcast_weather_async(self) -> dict:
+        return await asyncio.to_thread(self.broadcast_weather_sync)
+
     def _run_time_loop(self):
-        """Hourly Time Announcement at :00 (Sri Lanka Time)."""
-        print("[Scheduler] Hourly Sinhala Time (Asia/Colombo UTC+5:30) & 10-Minute Quick News Poller active.")
+        """
+        Hourly Time Announcement at :00 (Sri Lanka Time).
+        Colombo Live Weather Announcement at :10 (exactly 10 minutes after hourly time).
+        """
+        print("[Scheduler] Hourly Time (:00), Colombo Weather (:10), & Radio ID (20m) active.")
         while True:
             try:
                 now = get_colombo_time()
-                # Hourly Time Announcement at :00
+                # 1. Hourly Time Announcement at :00
                 if self.time_enabled and now.minute == 0 and 0 <= now.second <= 12:
                     if self.last_announced_hour != now.hour:
                         self.last_announced_hour = now.hour
@@ -165,8 +254,18 @@ class HourlyTimeScheduler:
                             self.broadcast_time_sync()
                         except Exception as te:
                             print(f"[Scheduler] Error in time announcement: {te}")
+
+                # 2. Colombo Weather Announcement at :10 (exactly 10 minutes after hourly time)
+                if self.time_enabled and now.minute == 10 and 0 <= now.second <= 12:
+                    if self.last_weather_hour != now.hour:
+                        self.last_weather_hour = now.hour
+                        print(f"[Scheduler] Auto Colombo Weather Announcement at {now.hour}:10")
+                        try:
+                            self.broadcast_weather_sync()
+                        except Exception as we:
+                            print(f"[Scheduler] Error in weather announcement: {we}")
             except Exception as e:
-                print(f"[Scheduler] Time loop error: {e}")
+                print(f"[Scheduler] Time/Weather loop error: {e}")
 
             time.sleep(6)
 
@@ -193,15 +292,15 @@ class HourlyTimeScheduler:
 
     def _run_tagline_loop(self):
         """
-        Periodically announces Station Radio ID (every 7-8 minutes) fittingly over active tracks,
-        remixes, and long DJ sets with music ducking (down to 20%).
+        Periodically announces Station Radio ID ("Radio Four D M") every 20 minutes (1200 seconds)
+        fittingly over active tracks, remixes, and sets with music ducking (down to 20%).
         """
         time.sleep(90) # Initial warmup delay
         while True:
             try:
-                # Check if at least 7 minutes (420s) passed since last voice broadcast
+                # Check if at least 20 minutes (1200s) passed since last voice broadcast
                 elapsed_since_last = time.time() - self.last_tagline_time
-                if elapsed_since_last >= 420:
+                if elapsed_since_last >= 1200:
                     # Only drop Radio ID if music is actively playing and no other voice is queued
                     has_active_music = (station_engine.deck_a.is_active or station_engine.deck_b.is_active)
                     has_pending_voice = bool(station_engine.current_voice_pcm) or bool(station_engine.voice_queue)

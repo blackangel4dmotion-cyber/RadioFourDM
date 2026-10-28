@@ -133,9 +133,12 @@ class Deck:
     def load_and_play(self, track: Dict[str, Any], initial_volume: float = 0.0, target_volume: float = 1.0, fade_duration_sec: float = 5.0):
         self.stop()
         self.track = track
+        MAX_TRACK_CAP_SEC = 1200.0 # 20 minutes maximum cap
         raw_dur = float(track.get("duration", 0) or 0)
-        # Support full tracks of any length (Remixes, DJ non-stop sets, Long tracks)
-        self.duration_sec = raw_dur if raw_dur > 0 else 0.0
+        if raw_dur > MAX_TRACK_CAP_SEC or raw_dur <= 0:
+            self.duration_sec = MAX_TRACK_CAP_SEC
+        else:
+            self.duration_sec = raw_dur
         self.elapsed_sec = 0.0
         self.empty_count = 0
         self.volume = initial_volume
@@ -220,6 +223,13 @@ class Deck:
             data = self.audio_queue.get_nowait()
             self.elapsed_sec += 0.100
             self.empty_count = 0
+
+            # Strict 20-minute track cap: fade out immediately if track exceeds 20 minutes
+            if self.elapsed_sec >= 1200.0:
+                if self.target_volume > 0.0:
+                    print(f"[DJ Deck {self.name}] Reached 20-minute track limit ({self.elapsed_sec:.1f}s). Auto-fading out.")
+                    self.fade_out(duration_sec=3.0)
+
             if data and len(data) >= 100:
                 samples = np.frombuffer(data, dtype=np.int16).astype(np.float32)
                 rms = np.sqrt(np.mean(samples ** 2))
@@ -259,8 +269,8 @@ class AudioStationEngine:
         self.playlist: List[Dict[str, Any]] = []
         self.voice_queue: List[Dict[str, Any]] = []
         
-        # Deduplication tracking: Store normalized titles and URLs of recently played songs
-        self.played_history = collections.deque(maxlen=30)
+        # Deduplication tracking: Store normalized titles and timestamps (1-hour / 3600s repeat lockout)
+        self.played_history: Dict[str, float] = {}
         
         # Active SFX overlays playing concurrently
         self.active_sfx_list: List[Dict[str, Any]] = []
@@ -320,8 +330,9 @@ class AudioStationEngine:
         return t[:30] # Match primary 30 chars
 
     def is_duplicate(self, title: str, url: str = "") -> bool:
-        """Strict check to prevent adding the same song twice."""
+        """Strict check to prevent playing the same song within 1 hour (3600 seconds)."""
         norm = self._normalize_title(title)
+        now = time.time()
         with self.lock:
             # 1. Check active playing decks
             for deck in [self.deck_a, self.deck_b]:
@@ -338,9 +349,11 @@ class AudioStationEngine:
                 if url and t.get("original_url") == url:
                     return True
 
-            # 3. Check recent history
-            if norm in self.played_history:
-                return True
+            # 3. Check 1-hour played history (3600s repeat lockout)
+            if norm and norm in self.played_history:
+                last_time = self.played_history[norm]
+                if now - last_time < 3600:
+                    return True
 
         return False
 
@@ -968,7 +981,9 @@ class AudioStationEngine:
                 with self.lock:
                     if self.playlist:
                         next_track = self.playlist.pop(0)
-                        self.played_history.append(self._normalize_title(next_track.get("title", "")))
+                        norm_t = self._normalize_title(next_track.get("title", ""))
+                        if norm_t:
+                            self.played_history[norm_t] = time.time()
                         active_deck.load_and_play(next_track, initial_volume=0.0, target_volume=1.0, fade_duration_sec=2.0)
 
             # 3. Seamless Decibel-Matched Crossfade Check
@@ -977,6 +992,9 @@ class AudioStationEngine:
             should_crossfade = False
             if active_deck.is_active and not next_deck.is_active and not self.is_playing_transition_news:
                 if active_deck.eof_reached or active_deck.target_volume == 0.0:
+                    should_crossfade = True
+                elif active_deck.elapsed_sec >= (1200.0 - crossfade_sec):
+                    # Hard 20-minute maximum track cap
                     should_crossfade = True
                 elif active_deck.duration_sec > 10 and time_left <= crossfade_sec:
                     # Seamless Equal-Power crossfade: starts BEFORE outgoing track decibels drop,
@@ -995,7 +1013,9 @@ class AudioStationEngine:
                         print(f"[DJ Mixer] Song ended. Broadcasting Quick News between songs before next track starts: {news_item['title']}")
                     elif self.playlist:
                         incoming_track = self.playlist.pop(0)
-                        self.played_history.append(self._normalize_title(incoming_track.get("title", "")))
+                        norm_inc = self._normalize_title(incoming_track.get("title", ""))
+                        if norm_inc:
+                            self.played_history[norm_inc] = time.time()
                         
                         active_deck.fade_out(duration_sec=crossfade_sec)
                         next_deck.load_and_play(incoming_track, initial_volume=0.0, target_volume=1.0, fade_duration_sec=crossfade_sec)

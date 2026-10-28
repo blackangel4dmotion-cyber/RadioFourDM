@@ -14,7 +14,7 @@ ENV HOME=/home/user \
     PATH=/home/user/.local/bin:$PATH \
     PYTHONUNBUFFERED=1 \
     PYTHONIOENCODING=utf-8 \
-    PORT=7860
+    PORT=10000
 
 WORKDIR $HOME/app
 
@@ -33,8 +33,8 @@ RUN mkdir -p audio_cache audio_cache/prerendered static templates && \
 # Switch to non-root user
 USER user
 
-# Expose default port
-EXPOSE 7860
+# Expose default ports (10000 for Render, 7860 for Hugging Face, 8000 local)
+EXPOSE 10000 7860 8000
 
 # Start Radio Four D M master station
 CMD ["python", "app.py"]

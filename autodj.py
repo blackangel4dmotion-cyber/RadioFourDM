@@ -40,7 +40,26 @@ CHART_CATALOGS = {
         {"title": "Sanda Midulata Enawa (සඳ මිදුලට එනවා)", "artist": "Kasun Kalhara", "query": "ytsearch1:Sanda Midulata Enawa Kasun Kalhara"},
         {"title": "Nelum Vile (නෙළුම් විලේ)", "artist": "Daddy", "query": "ytsearch1:Nelum Vile Daddy Band Official"},
         {"title": "Chandrayan Pidu (චන්ද්‍රයාන් පිදූ)", "artist": "Kasun Kalhara", "query": "ytsearch1:Chandrayan Pidu Kasun Kalhara"},
-        {"title": "Kawiyak Wee (කවියක් වී)", "artist": "Ridma Weerawardena", "query": "ytsearch1:Kawiyak Wee Ridma Weerawardena"}
+        {"title": "Kawiyak Wee (කවියක් වී)", "artist": "Ridma Weerawardena", "query": "ytsearch1:Kawiyak Wee Ridma Weerawardena"},
+        {"title": "Dilisena Tharuwo (දිලිසෙන තරුවෝ)", "artist": "Costa ft. Master D", "query": "ytsearch1:Dilisena Tharuwo Costa Official"},
+        {"title": "Kiri Kodu Hithata (කිරි කෝඩු හිතට)", "artist": "Bathiya Jayakody & Kanchana", "query": "ytsearch1:Kiri Kodu Hithata Bathiya Kanchana"},
+        {"title": "Athin Mathin (ඇතින් මතින්)", "artist": "Dinesh Gamage", "query": "ytsearch1:Dinesh Gamage Athin Mathin Official"},
+        {"title": "Hadakari Naari (හැඩකාරී නාරි)", "artist": "Dinesh Gamage & Kaizer Kaiz", "query": "ytsearch1:Hadakari Naari Dinesh gamage Kaizer kaiz"},
+        {"title": "Awasan Satana (අවසන් සටන)", "artist": "Sanuka Wickramasinghe", "query": "ytsearch1:Sanuka Awasan Satana Official"},
+        {"title": "Nela Ganna Baha (නෙලා ගන්න බැහැ)", "artist": "Centigradz", "query": "ytsearch1:Nela Ganna Baha Centigradz Official"},
+        {"title": "Rusiri (රුසිරී)", "artist": "Centigradz", "query": "ytsearch1:Rusiri Centigradz Official Video"},
+        {"title": "Kandulu Bindak (කඳුළු බිඳක්)", "artist": "Rookantha Gunathilake", "query": "ytsearch1:Kandulu Bindak Rookantha Gunathilake"},
+        {"title": "Bambara Pahasa (බඹර පහස)", "artist": "Rookantha Gunathilake", "query": "ytsearch1:Bambara Pahasa Rookantha Gunathilake"},
+        {"title": "Ananthayata Yanawamai (DJ Remix)", "artist": "Kasun Kalhara DJ Remix", "query": "ytsearch1:Ananthayata Yanawamai DJ Remix"},
+        {"title": "Saragaye (Club Remix)", "artist": "Sanuka Wickramasinghe Remix", "query": "ytsearch1:Saragaye Remix Sanuka"},
+        {"title": "Sanda Tharakawa (සඳ තාරකාව)", "artist": "Bathiya and Santhush", "query": "ytsearch1:Sanda Tharakawa Bathiya and Santhush"},
+        {"title": "Yanna Rata Wate (යන්න රට වටේ)", "artist": "Daddy", "query": "ytsearch1:Yanna Rata Wate Daddy Band"},
+        {"title": "Massina (මස්සිනා)", "artist": "Daddy Band", "query": "ytsearch1:Massina Daddy Band Official"},
+        {"title": "Rahasak (රහසක්)", "artist": "Kanchana Anuradhi", "query": "ytsearch1:Rahasak Kanchana Anuradhi"},
+        {"title": "Nidi Nena (නිදි නේනා)", "artist": "Sanuka Wickramasinghe", "query": "ytsearch1:Nidi Nena Sanuka Official"},
+        {"title": "Sithuwili (සිතිවිලි)", "artist": "Kasun Kalhara", "query": "ytsearch1:Sithuwili Kasun Kalhara"},
+        {"title": "Hada Wela (හඬ වෙලා)", "artist": "Bathiya and Santhush", "query": "ytsearch1:Hada Wela Bathiya and Santhush"},
+        {"title": "Kandula (කඳුල)", "artist": "Centigradz", "query": "ytsearch1:Kandula Centigradz"}
     ],
     "hindi": [
         {"title": "Kesariya (Brahmāstra)", "artist": "Arijit Singh", "query": "ytsearch1:Kesariya Brahmastra Arijit Singh Ranbir Kapoor"},
@@ -94,7 +113,9 @@ CHART_CATALOGS = {
 }
 
 def get_mixed_chart() -> List[Dict[str, str]]:
-    """Builds a diverse, randomized mixed chart across Sinhala, English, and Hindi."""
+    """
+    Builds a randomized mixed chart heavily weighted towards Sinhala hits (70% Sinhala, 15% English, 15% Hindi).
+    """
     sinhala_items = [dict(x, category="Sinhala") for x in CHART_CATALOGS["sinhala"]]
     hindi_items = [dict(x, category="Hindi") for x in CHART_CATALOGS["hindi"]]
     english_items = [dict(x, category="English") for x in CHART_CATALOGS["english"]]
@@ -104,18 +125,21 @@ def get_mixed_chart() -> List[Dict[str, str]]:
     random.shuffle(hindi_items)
     random.shuffle(english_items)
 
+    # Ratio: 3 to 4 Sinhala songs for every 1 English or Hindi song
     mixed = []
-    max_len = max(len(sinhala_items), len(hindi_items), len(english_items))
-    for i in range(max_len):
-        if i < len(sinhala_items):
-            mixed.append(sinhala_items[i])
-        if i < len(english_items):
-            mixed.append(english_items[i])
-        if i < len(hindi_items):
-            mixed.append(hindi_items[i])
-            
-    # Final random shuffle for maximum unpredictability
-    random.shuffle(mixed)
+    s_idx, e_idx, h_idx = 0, 0, 0
+    while s_idx < len(sinhala_items):
+        for _ in range(3):
+            if s_idx < len(sinhala_items):
+                mixed.append(sinhala_items[s_idx])
+                s_idx += 1
+        if e_idx < len(english_items):
+            mixed.append(english_items[e_idx])
+            e_idx += 1
+        if h_idx < len(hindi_items):
+            mixed.append(hindi_items[h_idx])
+            h_idx += 1
+
     return mixed
 
 class AutoDJEngine:
@@ -153,29 +177,43 @@ class AutoDJEngine:
 
     def get_next_unplayed_catalog_item(self) -> Optional[Dict[str, str]]:
         """
-        Picks a purely RANDOM song from the unplayed catalog tracks.
-        Guarantees tracks do not repeat in a predictable cycle.
+        Picks a random unplayed song, with 70% preference towards Sinhala tracks.
+        Respects the 1-hour duplicate lockout so no song repeats within 60 minutes.
         """
         with self.lock:
-            # Refresh mixed catalog if empty
-            if not self.mixed_catalog:
-                self.mixed_catalog = get_mixed_chart()
-
-            # Find all candidates currently not active, not queued, and not in recent history
-            unplayed = [
-                item for item in self.mixed_catalog
+            # 70% preference for Sinhala
+            preferred_category = random.choices(["Sinhala", "English", "Hindi"], weights=[70, 15, 15], k=1)[0]
+            
+            # 1. Try to find unplayed candidates in the preferred category first (not played in past 60m)
+            cat_candidates = [dict(x, category=preferred_category) for x in CHART_CATALOGS.get(preferred_category.lower(), [])]
+            unplayed_cat = [
+                item for item in cat_candidates
                 if not self.station_engine.is_duplicate(item["title"])
             ]
-
-            if unplayed:
-                chosen = random.choice(unplayed)
-                print(f"[AutoDJ Random] Picked random hit ({len(unplayed)} candidates remaining): {chosen['title']}")
+            if unplayed_cat:
+                chosen = random.choice(unplayed_cat)
+                print(f"[AutoDJ] Picked {preferred_category} hit ({len(unplayed_cat)} remaining): {chosen['title']}")
                 return chosen
 
-            # If all catalog songs were recently played, re-shuffle fresh mixed catalog
-            print("[AutoDJ Random] All catalog songs recently played. Refreshing random pool...")
-            self.mixed_catalog = get_mixed_chart()
-            return random.choice(self.mixed_catalog)
+            # 2. Fallback: try all categories with 1-hour duplicate check
+            all_items = get_mixed_chart()
+            unplayed = [
+                item for item in all_items
+                if not self.station_engine.is_duplicate(item["title"])
+            ]
+            if unplayed:
+                sinhala_unplayed = [x for x in unplayed if x.get("category") == "Sinhala"]
+                if sinhala_unplayed and random.random() < 0.70:
+                    chosen = random.choice(sinhala_unplayed)
+                else:
+                    chosen = random.choice(unplayed)
+                print(f"[AutoDJ] Picked hit ({len(unplayed)} remaining): {chosen['title']}")
+                return chosen
+
+            # 3. If all catalog songs were played in the last hour, pick from Sinhala catalog
+            print("[AutoDJ] All songs played recently. Picking fresh from Sinhala catalog...")
+            sinhala_pool = [dict(x, category="Sinhala") for x in CHART_CATALOGS["sinhala"]]
+            return random.choice(sinhala_pool)
 
     def queue_single_chart_item(self, item: Dict[str, str]) -> Optional[Dict[str, Any]]:
         """Resolve YouTube direct stream and add to queue with strict duplicate check."""
@@ -301,13 +339,8 @@ class AutoDJEngine:
 
     def _autodj_loop(self):
         print("[AutoDJ] Auto-DJ 24/7 Engine Loop active (Fast Standby Preload Mode).")
-        # 1. Immediately preload 10-song random mixed chart across all languages on initial boot
-        try:
-            if self.enabled and len(self.station_engine.playlist) == 0:
-                print("[AutoDJ] Initial Boot: Preloading 10 random mixed songs (Sinhala, Hindi, English)...")
-                self.load_preset_chart("mixed", count=10)
-        except Exception as boot_err:
-            print(f"[AutoDJ] Startup preload error: {boot_err}")
+        # Give web server 2 seconds to bind port and pass cloud healthchecks first
+        time.sleep(2.0)
 
         while self.is_running:
             try:
@@ -324,13 +357,13 @@ class AutoDJEngine:
                             try:
                                 t = self.queue_single_chart_item(item)
                                 if not t:
-                                    time.sleep(0.3)
+                                    time.sleep(0.5)
                             except Exception as e:
                                 print(f"[AutoDJ] Auto-queue error: {e}")
-                                time.sleep(0.3)
+                                time.sleep(0.5)
                         else:
                             break
-                        time.sleep(0.8)
+                        time.sleep(1.0)
             except Exception as e:
                 print(f"[AutoDJ] Loop error: {e}")
 

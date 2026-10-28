@@ -1,4 +1,5 @@
 import os
+import time
 os.environ["NO_PROXY"] = "localhost,127.0.0.1," + os.environ.get("NO_PROXY", "")
 import asyncio
 from contextlib import asynccontextmanager
@@ -149,6 +150,12 @@ def audio_stream():
             "Connection": "keep-alive"
         }
     )
+
+@app.get("/api/ping")
+@app.head("/api/ping")
+async def ping_healthcheck():
+    """Ultra-fast 0ms ping endpoint for UptimeRobot keep-alive and cloud health probes."""
+    return {"status": "ok", "time": time.time(), "station": "Radio Four D M"}
 
 @app.get("/api/status")
 async def get_station_status():
@@ -560,8 +567,24 @@ async def trigger_station_tagline(req: TaglineRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Tagline error: {str(e)}")
 
+@app.post("/api/weather/broadcast")
+async def trigger_colombo_weather():
+    """Trigger Colombo live weather announcement over music (Ducking)."""
+    try:
+        res = await time_scheduler.broadcast_weather_async()
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Weather broadcast error: {str(e)}")
+
 if __name__ == "__main__":
     import uvicorn
-    # Read PORT from environment (7860 on Hugging Face Spaces, 8000 locally)
-    port = int(os.getenv("PORT", 8000))
+    # Render defaults to 10000, Hugging Face to 7860, Local to 8000
+    raw_port = os.getenv("PORT")
+    if raw_port:
+        port = int(raw_port)
+    elif os.getenv("RENDER") or os.getenv("RENDER_SERVICE_ID"):
+        port = 10000
+    else:
+        port = 8000
+    print(f"[Radio Four D M] Starting server on 0.0.0.0:{port}...")
     uvicorn.run(app, host="0.0.0.0", port=port)
