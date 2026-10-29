@@ -140,6 +140,92 @@ setTimeout(() => {
     }
 }, 100);
 
+const AI_SCRIPT_TEMPLATES = {
+    // 1. Song Dedications
+    "dedication_next": (name) => `අපේ ආදරණීය ශ්‍රාවක ${name} ආදරයෙන් එකතු කරගනිමින්, Radio Four D M වෙතින් ඔබ සැමට තිළිණ කෙරෙන මීළඟ මියුරු ගීතය රසවිඳින්න!`,
+    "dedication_request": (name) => `මෙන්න අපේ හිතවත් ශ්‍රාවක ${name} ගේ විශේෂ ඉල්ලීම පරිදි, Radio Four D M ඔබ වෙනුවෙන්ම තෝරාගත් අපූරු ගීතයක්!`,
+    "dedication_special": (name) => `${name} වෙනුවෙන් Radio Four D M වෙතින් පිරිනමන ආදරණීය ගීත තිළිණයයි මේ. දිගටම රැඳී සිටින්න අප සමඟින්!`,
+    
+    // 2. Birthday Wishes
+    "bday_classic": (name) => `අද දින උපන්දිනය සමරන අපගේ ආදරණීය ${name} ට, Radio Four D M පවුලේ සැමගෙන් සුබම සුබ උපන්දිනයක් ප්‍රාර්ථනා කරනවා! ප්‍රීතිමත් සුන්දර දවසක් වේවා!`,
+    "bday_milestone": (name) => `සුභ උපන්දිනයක් වේවා ${name}! ඔබගේ සියලු බලාපොරොත්තු සාර්ථක වන, නිරෝගීමත් වාසනාවන්ත වසරක් වේවායි Radio Four D M අපි එක සිතින් පතනවා!`,
+    "bday_party": (name) => `Happy Birthday ${name}! Radio Four D M රිද්මයෙන් ඔයාලගේ උපන්දින සාදය තවත් වර්ණවත් කරගන්න. Have a wonderful blast!`,
+    
+    // 3. Comedy & Fun Banter
+    "comedy_work": (name) => `ආයුබෝවන් යාලුවනේ! දවස පුරාම වැඩ කරලා ඔළුවත් රිදෙනවා නේද? කිසි දේකට හිත කරදර කරගන්න එපා, Radio Four D M එක දාලා සිංදුවක් අහලා full chill එකක් දාන්න!`,
+    "comedy_traffic": (name) => `ට්‍රැෆික් එකේ හිරවෙලාද ඉන්නේ? එහෙනම් හෝන් ගහලා වැඩක් නෑ, Radio Four D M volume එක වැඩි කරලා බීට් එකට නටන්න!`,
+    "comedy_tea": (name) => `අප්පටසිරි... තේ බොන්න වෙලාවත් හරි නේද? වැඩ ටික පැත්තකින් තියලා තේ එකක් එක්ක Radio Four D M අහන්න සෙට් වෙන්න යාලුවනේ!`,
+    "comedy_love": (name) => `කවුරු හරි තරහ වෙලාද ඉන්නේ? ඕවා ගණන් ගන්න එපා, Radio Four D M එකෙන් ලස්සන සිංදුවක් අහලා shape වෙන්න!`,
+    
+    // 4. Radio 4DM ID Mentions
+    "id_fresh": (name) => `ඔබ මේ සවන් දෙන්නේ ශ්‍රී ලාංකේය සංගීතයේ නැවුම් අත්දැකීම, Radio Four D M සජීවී විකාශයටයි!`,
+    "id_future": (name) => `Listen to the best hits, nonstop music on Radio Four D M - The Future of Digital Sound!`,
+    "id_heart": (name) => `රසික හදවත් දිනූ මියුරු ගීත පෙළහර, මේ Radio Four D M - ඔබේම රේඩියෝව!`,
+    "id_nonstop": (name) => `රැය පහන් වන තුරු හොඳම ගීත සමඟින්, Radio Four D M අඛණ්ඩ පැය 24 පුරාම ඔබේ ළඟින්ම!`
+};
+
+function applyTemplate(tplKey) {
+    const nameInput = document.getElementById('listenerNameInput');
+    const name = (nameInput && nameInput.value.trim()) ? nameInput.value.trim() : "යහළුවා";
+    
+    const generator = AI_SCRIPT_TEMPLATES[tplKey];
+    if (generator) {
+        const text = generator(name);
+        if (adTextInput) {
+            adTextInput.value = text;
+            adTextInput.focus();
+        }
+        if (adLangSelect) {
+            adLangSelect.value = tplKey === 'id_future' ? 'en' : 'si';
+        }
+        showToast("Template එක සාර්ථකව Script කොටුවට එක්විය!");
+    }
+}
+
+function onListenerNameChange() {
+    // Interactive handler if needed
+}
+
+const PREDEFINED_GOOGLE_KEY = "AQ.Ab8RN6KuK5zmnKB6t1XaiGOhxDEv2lYH225u7peYOOphrubhKw";
+
+async function pasteAndLinkPredefinedKey() {
+    if (geminiQuickKeyInput) geminiQuickKeyInput.value = PREDEFINED_GOOGLE_KEY;
+    if (modalGeminiKey) modalGeminiKey.value = PREDEFINED_GOOGLE_KEY;
+    try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(PREDEFINED_GOOGLE_KEY);
+        }
+    } catch(e) {}
+    showToast("Google Key එක ඇතුළත් විය! සම්බන්ධ කර පරීක්ෂා කරමින් පවතී...");
+    verifyAndSaveGeminiKey();
+}
+
+function copyPredefinedKey() {
+    try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(PREDEFINED_GOOGLE_KEY);
+            showToast("Google Key එක Clipboard එකට Copy විය!");
+            return;
+        }
+    } catch (e) {}
+    alert("Google Key: " + PREDEFINED_GOOGLE_KEY);
+}
+
+function showToast(msg) {
+    let t = document.getElementById('studioToast');
+    if (!t) {
+        t = document.createElement('div');
+        t.id = 'studioToast';
+        t.className = 'studio-toast';
+        document.body.appendChild(t);
+    }
+    t.textContent = msg;
+    t.classList.add('visible');
+    setTimeout(() => {
+        t.classList.remove('visible');
+    }, 3000);
+}
+
 function insertSample(type) {
     if (type === 'promo') {
         adTextInput.value = "මෙම හෝරාව ඔබ වෙත ගෙන එන්නේ සිලෝන් ට්‍රේඩර්ස් ආයතනයයි. විශේෂ වට්ටම් සඳහා අදම පිවිසෙන්න!";
@@ -250,6 +336,39 @@ function toggleMute(deck) {
     });
 }
 
+// ==========================================
+// AI VOICE VOLUME CONTROL
+// ==========================================
+let _voiceGainDebounce = null;
+
+function onVoiceGainChange(val) {
+    window._voiceSliderTouched = true;
+    const display = document.getElementById('voiceGainDisplay');
+    if (display) display.textContent = `${val}%`;
+    localStorage.setItem('radio4dm_voice_gain', val);
+
+    clearTimeout(_voiceGainDebounce);
+    _voiceGainDebounce = setTimeout(async () => {
+        try {
+            await fetch('/api/control/voice-gain', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ gain: parseFloat(val) / 100.0 })
+            });
+        } catch (e) {
+            console.warn("Error updating voice gain:", e);
+        }
+    }, 150);
+}
+
+function resetVoiceGain() {
+    const slider = document.getElementById('voiceGainSlider');
+    if (slider) {
+        slider.value = 100;
+        onVoiceGainChange(100);
+    }
+}
+
 function updateOnAirUI(isOnAir) {
     const btn = document.getElementById('masterOnAirBtn');
     const btnText = document.getElementById('masterOnAirBtnText');
@@ -329,13 +448,14 @@ async function makeNextQueueItem(trackId) {
 }
 
 async function playNowQueueItem(trackId) {
+    showToast("2nd Deck එකට Cue කරමින් පවතී... Fade In වෙමින් ඇත 🎧");
     try {
         await fetch('/api/queue/play-now', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ track_id: trackId })
         });
-        fetchStatus();
+        setTimeout(fetchStatus, 300);
     } catch (e) {
         console.error("Play now track error:", e);
     }
@@ -1122,30 +1242,115 @@ async function fetchStatus() {
             trackTypeBadge.className = "track-badge music";
         }
 
-        // Update Deck A Details
+        // Helper to update VU meter LEDs dynamically
+        function updateVuMeterLeds(vuContainer, isActive, volume, rmsDb) {
+            if (!vuContainer) return;
+            const leds = vuContainer.querySelectorAll('.vu-led');
+            if (!isActive || volume <= 0.01) {
+                leds.forEach(led => led.classList.remove('lit'));
+                return;
+            }
+            let litCount = 0;
+            if (rmsDb !== undefined && rmsDb > -60) {
+                const norm = Math.max(0, Math.min(1, (rmsDb + 42) / 38));
+                litCount = Math.round(norm * volume * 7);
+            } else {
+                litCount = Math.round(volume * 5);
+            }
+            if (Math.random() > 0.4 && litCount < 7) litCount += 1;
+            litCount = Math.max(1, Math.min(7, litCount));
+
+            // Indices: 0 is top (red), 6 is bottom (green)
+            leds.forEach((led, idx) => {
+                const rankFromBottom = 7 - idx;
+                if (rankFromBottom <= litCount) {
+                    led.classList.add('lit');
+                } else {
+                    led.classList.remove('lit');
+                }
+            });
+        }
+
+        // Update Deck A Live Turntable & VU Meter
+        const vinylA = document.getElementById('vinylPlatterA');
+        const tonearmA = document.getElementById('tonearmA');
+        const pillA = document.getElementById('deckAOnAirPill');
+        const vuMeterA = document.getElementById('deckAVuMeter');
+        const progressBarA = document.getElementById('deckAProgressBar');
+        const channelA = document.getElementById('deckChannelA');
+
         if (data.deck_a) {
             deckATitle.textContent = data.deck_a.track || "Deck A Idle";
             deckATitle.title = data.deck_a.track || "";
-            deckATime.textContent = `${formatSeconds(data.deck_a.elapsed)} / ${formatSeconds(data.deck_a.duration)}`;
-            if (data.deck_a.active && data.deck_a.volume > 0.05) {
+            const cappedDurA = Math.min(data.deck_a.duration || 360, 360);
+            deckATime.textContent = `${formatSeconds(data.deck_a.elapsed)} / ${formatSeconds(cappedDurA)} (Max 06:00)`;
+
+            const isAActive = data.deck_a.active && data.deck_a.volume > 0.05 && !data.deck_a.muted;
+            if (isAActive) {
                 deckABadge.classList.add('active');
+                if (channelA) channelA.classList.add('on-air');
+                if (vinylA) vinylA.classList.add('spinning');
+                if (tonearmA) tonearmA.classList.add('active');
+                if (pillA) pillA.classList.add('active');
             } else {
                 deckABadge.classList.remove('active');
+                if (channelA) channelA.classList.remove('on-air');
+                if (vinylA) vinylA.classList.remove('spinning');
+                if (tonearmA) tonearmA.classList.remove('active');
+                if (pillA) pillA.classList.remove('active');
             }
+
+            // Progress bar
+            if (progressBarA && cappedDurA > 0) {
+                const pctA = Math.min(100, Math.max(0, (data.deck_a.elapsed / cappedDurA) * 100));
+                progressBarA.style.width = `${pctA}%`;
+            }
+
+            // VU Meter
+            updateVuMeterLeds(vuMeterA, isAActive, data.deck_a.volume, data.deck_a.rms_db);
+
             if (data.deck_a.muted) deckAMuteBtn.classList.add('active');
             else deckAMuteBtn.classList.remove('active');
         }
 
-        // Update Deck B Details
+        // Update Deck B Live Turntable & VU Meter
+        const vinylB = document.getElementById('vinylPlatterB');
+        const tonearmB = document.getElementById('tonearmB');
+        const pillB = document.getElementById('deckBOnAirPill');
+        const vuMeterB = document.getElementById('deckBVuMeter');
+        const progressBarB = document.getElementById('deckBProgressBar');
+        const channelB = document.getElementById('deckChannelB');
+
         if (data.deck_b) {
             deckBTitle.textContent = data.deck_b.track || "Deck B Idle";
             deckBTitle.title = data.deck_b.track || "";
-            deckBTime.textContent = `${formatSeconds(data.deck_b.elapsed)} / ${formatSeconds(data.deck_b.duration)}`;
-            if (data.deck_b.active && data.deck_b.volume > 0.05) {
+            const cappedDurB = Math.min(data.deck_b.duration || 360, 360);
+            deckBTime.textContent = `${formatSeconds(data.deck_b.elapsed)} / ${formatSeconds(cappedDurB)} (Max 06:00)`;
+
+            const isBActive = data.deck_b.active && data.deck_b.volume > 0.05 && !data.deck_b.muted;
+            if (isBActive) {
                 deckBBadge.classList.add('active');
+                if (channelB) channelB.classList.add('on-air');
+                if (vinylB) vinylB.classList.add('spinning');
+                if (tonearmB) tonearmB.classList.add('active');
+                if (pillB) pillB.classList.add('active');
             } else {
                 deckBBadge.classList.remove('active');
+                if (channelB) channelB.classList.remove('on-air');
+                if (vinylB) vinylB.classList.remove('spinning');
+                if (tonearmB) tonearmB.classList.remove('active');
+                if (pillB) pillB.classList.remove('active');
             }
+
+            // Progress bar
+            if (progressBarB && cappedDurB > 0) {
+                const pctB = Math.min(100, Math.max(0, (data.deck_b.elapsed / cappedDurB) * 100));
+                progressBarB.style.width = `${pctB}%`;
+            }
+
+            // VU Meter
+            updateVuMeterLeds(vuMeterB, isBActive, data.deck_b.volume, data.deck_b.rms_db);
+
             if (data.deck_b.muted) deckBMuteBtn.classList.add('active');
             else deckBMuteBtn.classList.remove('active');
         }
@@ -1171,17 +1376,40 @@ async function fetchStatus() {
         }
 
         // Update Toggles
+        // Master Stereo VU Meters Update
+        const masterLeft = document.getElementById('masterVuLeft');
+        const masterRight = document.getElementById('masterVuRight');
+        if (masterLeft && masterRight) {
+            const isAnyActive = (data.deck_a && data.deck_a.active && data.deck_a.volume > 0.05) ||
+                                (data.deck_b && data.deck_b.active && data.deck_b.volume > 0.05);
+            const maxVol = Math.max(data.deck_a ? data.deck_a.volume : 0, data.deck_b ? data.deck_b.volume : 0);
+            const maxRms = Math.max(data.deck_a ? data.deck_a.rms_db : -60, data.deck_b ? data.deck_b.rms_db : -60);
+            updateVuMeterLeds(masterLeft, isAnyActive, maxVol, maxRms);
+            updateVuMeterLeds(masterRight, isAnyActive, maxVol, maxRms);
+        }
+
         if (schedulerToggle && data.scheduler_enabled !== undefined) {
             schedulerToggle.checked = !!data.scheduler_enabled;
         }
         if (newsSchedulerToggle && data.news_scheduler_enabled !== undefined) {
             newsSchedulerToggle.checked = !!data.news_scheduler_enabled;
         }
+        const cricketToggle = document.getElementById('cricketSchedulerToggle');
+        if (cricketToggle && data.cricket_scheduler_enabled !== undefined) {
+            cricketToggle.checked = !!data.cricket_scheduler_enabled;
+        }
         if (autoDjToggle && data.autodj_enabled !== undefined) {
             autoDjToggle.checked = !!data.autodj_enabled;
         }
 
-        // Update 10-Song Standby Playlist (With Pattern Reordering & Next Song Selection)
+        const voiceSlider = document.getElementById('voiceGainSlider');
+        const voiceDisplay = document.getElementById('voiceGainDisplay');
+        if (voiceSlider && data.voice_gain_pct !== undefined && !window._voiceSliderTouched) {
+            voiceSlider.value = data.voice_gain_pct;
+            if (voiceDisplay) voiceDisplay.textContent = `${data.voice_gain_pct}%`;
+        }
+
+        // Update 10-Song Standby Playlist (Only re-render DOM when changed to eliminate UI lag!)
         queueCount.textContent = data.playlist ? data.playlist.length : 0;
 
         // Auto-bootstrap 10 random mixed chart hits (Sinhala, English, Hindi) on initial app open if queue is empty
@@ -1194,40 +1422,45 @@ async function fetchStatus() {
                 body: JSON.stringify({ chart: 'mixed', count: 10 })
             }).then(() => setTimeout(fetchStatus, 1500));
         }
-        if (data.playlist && data.playlist.length > 0) {
-            playlistContainer.innerHTML = data.playlist.map((track, i) => `
-                <div class="playlist-item ${i === 0 ? 'is-next-track' : ''}">
-                    <span style="color:var(--text-muted); font-size:10.5px; font-weight:700; min-width:20px;">#${i+1}</span>
-                    <img src="${track.thumbnail || 'https://via.placeholder.com/60'}" class="playlist-thumb" alt="Thumb">
-                    <div class="playlist-item-info">
-                        <div class="playlist-title" title="${track.title}">
-                            ${i === 0 ? '<span class="badge-next">NEXT UP</span>' : ''}${track.title}
+
+        const currentHash = data.playlist ? data.playlist.map(t => `${t.id}_${t.title}`).join('|') : "";
+        if (currentHash !== window._lastPlaylistHash) {
+            window._lastPlaylistHash = currentHash;
+            if (data.playlist && data.playlist.length > 0) {
+                playlistContainer.innerHTML = data.playlist.map((track, i) => `
+                    <div class="playlist-item ${i === 0 ? 'is-next-track' : ''}">
+                        <span style="color:var(--text-muted); font-size:10.5px; font-weight:700; min-width:20px;">#${i+1}</span>
+                        <img src="${track.thumbnail || 'https://via.placeholder.com/60'}" class="playlist-thumb" alt="Thumb">
+                        <div class="playlist-item-info">
+                            <div class="playlist-title" title="${track.title}">
+                                ${i === 0 ? '<span class="badge-next">NEXT UP</span>' : ''}${track.title}
+                            </div>
+                            <div class="playlist-meta">${track.uploader} • ${track.duration_str || '--:--'}</div>
                         </div>
-                        <div class="playlist-meta">${track.uploader} • ${track.duration_str || '--:--'}</div>
+                        <div class="track-action-group">
+                            <button class="btn-track-action play-now" onclick="playNowQueueItem('${track.id}')" title="Play Now (Cues into 2nd Deck with Fade In)">
+                                <i class="fa-solid fa-play"></i>
+                            </button>
+                            ${i > 0 ? `
+                            <button class="btn-track-action make-next" onclick="makeNextQueueItem('${track.id}')" title="Set as NEXT Song">
+                                <i class="fa-solid fa-bolt"></i> Next
+                            </button>
+                            ` : ''}
+                            <button class="btn-track-action move-btn" onclick="moveQueueItem('${track.id}', 'up')" ${i === 0 ? 'disabled' : ''} title="Move Up">
+                                <i class="fa-solid fa-arrow-up"></i>
+                            </button>
+                            <button class="btn-track-action move-btn" onclick="moveQueueItem('${track.id}', 'down')" ${i === data.playlist.length - 1 ? 'disabled' : ''} title="Move Down">
+                                <i class="fa-solid fa-arrow-down"></i>
+                            </button>
+                            <button class="btn-remove-track" onclick="deleteQueueItem('${track.id}')" title="Remove song">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
                     </div>
-                    <div class="track-action-group">
-                        <button class="btn-track-action play-now" onclick="playNowQueueItem('${track.id}')" title="Play Now (Instant DJ Crossfade)">
-                            <i class="fa-solid fa-play"></i>
-                        </button>
-                        ${i > 0 ? `
-                        <button class="btn-track-action make-next" onclick="makeNextQueueItem('${track.id}')" title="Set as NEXT Song">
-                            <i class="fa-solid fa-bolt"></i> Next
-                        </button>
-                        ` : ''}
-                        <button class="btn-track-action move-btn" onclick="moveQueueItem('${track.id}', 'up')" ${i === 0 ? 'disabled' : ''} title="Move Up">
-                            <i class="fa-solid fa-arrow-up"></i>
-                        </button>
-                        <button class="btn-track-action move-btn" onclick="moveQueueItem('${track.id}', 'down')" ${i === data.playlist.length - 1 ? 'disabled' : ''} title="Move Down">
-                            <i class="fa-solid fa-arrow-down"></i>
-                        </button>
-                        <button class="btn-remove-track" onclick="deleteQueueItem('${track.id}')" title="Remove song">
-                            <i class="fa-solid fa-xmark"></i>
-                        </button>
-                    </div>
-                </div>
-            `).join('');
-        } else {
-            playlistContainer.innerHTML = `<div class="empty-state">No standby songs queued. Auto-DJ is loading 10 hits...</div>`;
+                `).join('');
+            } else {
+                playlistContainer.innerHTML = `<div class="empty-state">No standby songs queued. Auto-DJ is loading 10 hits...</div>`;
+            }
         }
 
     } catch (err) {
@@ -1235,9 +1468,136 @@ async function fetchStatus() {
     }
 }
 
+// ==========================================
+// 5. CRICBUZZ LIVE CRICKET BILINGUAL ENGINE
+// ==========================================
+let currentCricketLang = "si";
+
+async function setCricketLanguage(lang) {
+    currentCricketLang = lang;
+    const btnSi = document.getElementById('cricketLangSi');
+    const btnEn = document.getElementById('cricketLangEn');
+    if (btnSi && btnEn) {
+        if (lang === 'si') {
+            btnSi.classList.add('active');
+            btnEn.classList.remove('active');
+        } else {
+            btnEn.classList.add('active');
+            btnSi.classList.remove('active');
+        }
+    }
+    try {
+        await fetch('/api/cricket/language', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lang })
+        });
+    } catch (e) {
+        console.warn("Error saving cricket language:", e);
+    }
+    refreshCricketHighlights();
+}
+
+async function toggleCricketScheduler(enabled) {
+    try {
+        const res = await fetch('/api/cricket/toggle', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled: !!enabled })
+        });
+        const data = await res.json();
+        showToast(`🏏 20-Min Cricbuzz Updates: ${enabled ? 'ON (Only when matches are live)' : 'OFF'}`);
+    } catch (e) {
+        console.error("Cricket toggle error:", e);
+    }
+}
+
+async function refreshCricketHighlights() {
+    const headline = document.getElementById('cricketHeadline');
+    const summary = document.getElementById('cricketSummary');
+    const updateTime = document.getElementById('cricketUpdateTime');
+    const badge = document.getElementById('cricketLiveBadge');
+    const tag = document.getElementById('cricketLiveStatusTag');
+    try {
+        const res = await fetch(`/api/cricket/latest?lang=${currentCricketLang}`);
+        const data = await res.json();
+        if (data.status === 'success' && data.cricket) {
+            const c = data.cricket;
+            if (headline) headline.textContent = c.headline || "Cricbuzz Live Cricket Highlights";
+            if (summary) summary.textContent = c.summary || c.script || "Cricbuzz සජීවී දත්ත ලබා ගනිමින් පවතී...";
+            if (updateTime) updateTime.textContent = `Updated: ${c.time || 'Just now'}`;
+
+            if (badge) {
+                if (c.has_live) {
+                    badge.className = "badge-live-cricket";
+                    badge.innerHTML = `<i class="fa-solid fa-circle fa-beat" style="color: #10b981; font-size: 0.65rem;"></i> LIVE (${c.matches_count || 1})`;
+                } else {
+                    badge.className = "badge-live-cricket standby";
+                    badge.innerHTML = `<i class="fa-solid fa-pause"></i> STANDBY`;
+                }
+            }
+            if (tag) {
+                if (c.has_live) {
+                    tag.innerHTML = `<i class="fa-solid fa-bolt"></i> CRICBUZZ LIVE SCORE`;
+                    tag.style.background = "rgba(16, 185, 129, 0.2)";
+                    tag.style.color = "#34d399";
+                } else {
+                    tag.innerHTML = `<i class="fa-solid fa-clock"></i> NO LIVE MATCH`;
+                    tag.style.background = "rgba(148, 163, 184, 0.2)";
+                    tag.style.color = "#94a3b8";
+                }
+            }
+        }
+    } catch (e) {
+        console.warn("Cricket refresh error:", e);
+    }
+}
+
+async function broadcastCricketNow() {
+    const btn = document.getElementById('broadcastCricketBtn');
+    const feedback = document.getElementById('cricketFeedback');
+    if (btn) btn.disabled = true;
+    if (feedback) {
+        feedback.className = "fixed-feedback loading";
+        feedback.textContent = `Cricbuzz සජීවී දත්ත ලබාගනිමින් (${currentCricketLang.toUpperCase()}) 20% Ducking සමඟ විකාශය කෙරේ...`;
+    }
+    try {
+        const res = await fetch('/api/cricket/broadcast', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lang: currentCricketLang })
+        });
+        if (!res.ok) {
+            const errBody = await res.text();
+            throw new Error(`Server status ${res.status}: ${errBody}`);
+        }
+        const data = await res.json();
+        if (data.status === 'skipped') {
+            if (feedback) {
+                feedback.className = "fixed-feedback warning";
+                feedback.textContent = data.message || "Cricbuzz හි සජීවී තරග නොමැති බැවින් විකාශය මඟහරින ලදී.";
+            }
+            showToast("🏏 Cricbuzz: සජීවී තරග ක්‍රියාත්මක නොවන බැවින් විකාශය මඟහරින ලදී.");
+        } else if (data.status === 'success') {
+            if (feedback) {
+                feedback.className = "fixed-feedback success";
+                feedback.textContent = `Cricbuzz Live Cricket විකාශය 20% ducking සමඟ සාර්ථකව ආරම්භ විය!`;
+            }
+            showToast(`🏏 Cricbuzz Live Cricket (${currentCricketLang === 'si' ? 'සිංහල' : 'English'}) Broadcast On-Air!`);
+        }
+    } catch (e) {
+        if (feedback) {
+            feedback.className = "fixed-feedback error";
+            feedback.textContent = `Broadcast error: ${e.message}`;
+        }
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
 // Initial fetch
 fetchStatus();
-setInterval(fetchStatus, 2000);
+setInterval(fetchStatus, 1500); // 1.5s interval: perfectly smooth, zero UI lag
 
 // Check Gemini AI API status
 checkGeminiStatus();
@@ -1246,3 +1606,22 @@ setInterval(checkGeminiStatus, 15000);
 // Ada Derana Live Headline Polling (Every 5 minutes)
 refreshAdaDeranaNews();
 setInterval(refreshAdaDeranaNews, 300000);
+
+// Initial Cricket Fetch
+refreshCricketHighlights();
+setInterval(refreshCricketHighlights, 300000);
+
+// Restore saved Voice Gain preference if present
+const savedVoiceGain = localStorage.getItem('radio4dm_voice_gain');
+if (savedVoiceGain) {
+    window._voiceSliderTouched = true;
+    const vSlider = document.getElementById('voiceGainSlider');
+    const vDisplay = document.getElementById('voiceGainDisplay');
+    if (vSlider) vSlider.value = savedVoiceGain;
+    if (vDisplay) vDisplay.textContent = `${savedVoiceGain}%`;
+    fetch('/api/control/voice-gain', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gain: parseFloat(savedVoiceGain) / 100.0 })
+    }).catch(() => {});
+}
