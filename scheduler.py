@@ -326,15 +326,15 @@ class HourlyTimeScheduler:
 
     def _run_tagline_loop(self):
         """
-        Periodically announces Station Radio ID ("Radio Four D M") every 20 minutes (1200 seconds)
+        Periodically announces Station Radio ID ("Radio Four D M") every 15 minutes (900 seconds)
         fittingly over active tracks, remixes, and sets with music ducking (down to 20%).
         """
-        time.sleep(90) # Initial warmup delay
+        time.sleep(60) # Initial warmup delay
         while True:
             try:
-                # Check if at least 20 minutes (1200s) passed since last voice broadcast
+                # Check if at least 15 minutes (900s) passed since last voice broadcast
                 elapsed_since_last = time.time() - self.last_tagline_time
-                if elapsed_since_last >= 1200:
+                if elapsed_since_last >= 900:
                     # Only drop Radio ID if music is actively playing and no other voice is queued
                     has_active_music = (station_engine.deck_a.is_active or station_engine.deck_b.is_active)
                     has_pending_voice = bool(station_engine.current_voice_pcm) or bool(station_engine.voice_queue)

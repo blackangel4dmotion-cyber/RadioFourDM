@@ -36,16 +36,12 @@ CHUNK_SIZE = 17640 # 100ms of 44100Hz 16-bit Stereo PCM (4410 * 4 bytes)
 
 def resolve_fresh_stream_url(track: Dict[str, Any]) -> str:
     """
-    Ensures the stream URL passed to FFmpeg is fresh, active, and has not expired.
-    YouTube and SoundCloud direct CDN URLs expire after a few minutes with 403 Forbidden.
-    This dynamically re-resolves the direct stream URL before playback if older than 3 minutes.
+    Ensures the stream URL passed to FFmpeg is valid without blocking the live broadcast loop.
+    YouTube and SoundCloud direct CDN URLs remain valid for 6+ hours (21600s).
+    If existing_url is already present, it is returned instantly with 0ms delay to prevent audio dropouts.
     """
-    now = time.time()
     existing_url = track.get("stream_url", "")
-    resolved_at = track.get("resolved_at", 0)
-
-    # If URL is less than 3 minutes old and valid, use it directly
-    if existing_url and (now - resolved_at < 180):
+    if existing_url:
         return existing_url
 
     query = track.get("original_url") or track.get("query") or track.get("title")
@@ -59,7 +55,7 @@ def resolve_fresh_stream_url(track: Dict[str, Any]) -> str:
             'no_warnings': True,
             'default_search': 'ytsearch1',
             'source_address': '0.0.0.0',
-            'socket_timeout': 6,
+            'socket_timeout': 4,
             'extractor_args': {
                 'youtube': {
                     'player_client': ['android', 'ios', 'mweb']
@@ -73,11 +69,10 @@ def resolve_fresh_stream_url(track: Dict[str, Any]) -> str:
                 fresh_url = entry['url']
                 track['stream_url'] = fresh_url
                 track['http_headers'] = entry.get('http_headers', {})
-                track['resolved_at'] = now
-                print(f"[Deck] Dynamically refreshed fresh stream URL for: {track.get('title')}")
+                track['resolved_at'] = time.time()
                 return fresh_url
     except Exception as e:
-        print(f"[Deck] Dynamic stream resolve error for '{track.get('title')}': {e}")
+        print(f"[Deck] Stream URL resolve error: {e}")
 
     return existing_url
 
@@ -950,7 +945,9 @@ class AudioStationEngine:
             
             if self.playlist:
                 incoming_track = self.playlist.pop(0)
-                self.played_history.append(self._normalize_title(incoming_track.get("title", "")))
+                norm_inc = self._normalize_title(incoming_track.get("title", ""))
+                if norm_inc:
+                    self.played_history[norm_inc] = time.time()
                 crossfade_sec = 3.5
                 next_deck.load_and_play(incoming_track, initial_volume=0.0, target_volume=1.0, fade_duration_sec=crossfade_sec)
                 active_deck.fade_out(duration_sec=crossfade_sec)

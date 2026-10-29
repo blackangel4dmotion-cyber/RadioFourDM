@@ -2,6 +2,7 @@ import os
 import sys
 import re
 import time
+import json
 import urllib.request
 import urllib.parse
 import subprocess
@@ -10,6 +11,7 @@ import imageio_ffmpeg
 from tts_engine import generate_speech_file_sync, CACHE_DIR
 
 CRICKET_INTRO_FILE = os.path.join(CACHE_DIR, "cricket_intro.mp3")
+CRICBUZZ_SL_SCHEDULE_URL = "https://www.cricbuzz.com/cricket-team/sri-lanka/5/schedule"
 CRICBUZZ_LIVE_URL = "https://www.cricbuzz.com/cricket-match/live-scores"
 
 def ensure_cricket_intro_jingle():
@@ -17,7 +19,6 @@ def ensure_cricket_intro_jingle():
     if not os.path.exists(CRICKET_INTRO_FILE):
         try:
             ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
-            # Upbeat stadium sports fanfare (G4 -> B4 -> D5 -> G5)
             cmd = [
                 ffmpeg,
                 '-f', 'lavfi', '-i', 'anullsrc=r=44100:cl=stereo',
@@ -39,113 +40,6 @@ def ensure_cricket_intro_jingle():
             print(f"[Cricket] Error generating cricket intro jingle: {e}")
 
 ensure_cricket_intro_jingle()
-
-def is_sri_lanka_match(title: str, text: str, raw_strings: list) -> bool:
-    """Robustly checks whether a match features Sri Lanka (national men, women, A-team, under-19)."""
-    t_low = title.lower()
-    full_low = text.lower()
-    sl_keywords = [
-        "sri lanka", "srilanka", "sl-w", "sl w", "sl a", "sl-u19", "lanka", "ceylon", "lionesses"
-    ]
-    if any(k in t_low for k in sl_keywords) or any(k in full_low for k in sl_keywords):
-        return True
-    if re.search(r'\b(sl|slc|slw|sla)\b', t_low) or re.search(r'\b(sl|slc|slw|sla)\b', full_low):
-        return True
-    for s in raw_strings:
-        s_clean = s.strip().upper()
-        if s_clean in ["SL", "SL-W", "SLW", "SLC", "SL-A", "SRI LANKA"]:
-            return True
-    return False
-
-def fetch_cricbuzz_live_matches() -> list:
-    """
-    Directly scrapes https://www.cricbuzz.com/cricket-match/live-scores.
-    Extracts ONLY active, ongoing LIVE matches (filters out completed and preview/upcoming matches).
-    Prioritizes matches featuring Sri Lanka first.
-    """
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5'
-    }
-    try:
-        req = urllib.request.Request(CRICBUZZ_LIVE_URL, headers=headers)
-        with urllib.request.urlopen(req, timeout=8) as resp:
-            html = resp.read().decode('utf-8', errors='ignore')
-    except Exception as e:
-        print(f"[Cricket Engine] Cricbuzz fetch error: {e}")
-        return []
-
-    soup = BeautifulSoup(html, 'html.parser')
-    matches = []
-    seen_titles = set()
-
-    for a in soup.find_all('a', href=lambda h: h and '/live-cricket-scores/' in h):
-        title = a.get('title', '').strip()
-        if not title or title.lower() in ['live score', 'scorecard', 'full commentary', 'news']:
-            continue
-        if ' - preview' in title.lower() or 'preview' in title.lower():
-            continue
-
-        p = a
-        card_el = None
-        for _ in range(6):
-            if p.parent:
-                p = p.parent
-                text = ' | '.join(p.stripped_strings)
-                if 'Scorecard' in text and ('Live Score' in text or 'Full Commentary' in text):
-                    card_el = p
-                    break
-
-        if not card_el or title in seen_titles:
-            continue
-        seen_titles.add(title)
-
-        card_strings = list(card_el.stripped_strings)
-        filtered = [s for s in card_strings if s not in ['Live Score', 'Scorecard', 'Full Commentary', 'News', '|']]
-        full_text = ' '.join(filtered)
-        fl_lower = full_text.lower()
-
-        # Strict exclusion of completed or upcoming matches
-        is_completed = any(w in fl_lower for w in [
-            'won by', 'match drawn', 'no result', 'match tied', 'abandoned', 'concluded'
-        ])
-        is_upcoming = any(w in fl_lower for w in [
-            'match yet to begin', 'starts at', 'starts in', 'tomorrow', 'preview'
-        ])
-
-        if is_completed or is_upcoming:
-            continue
-
-        # Check for active live indicators
-        is_live = False
-        live_keywords = [
-            'opt to bowl', 'opt to bat', 'lead by', 'trail by', 'need ', 
-            'day ', 'session', 'stumps', 'tea break', 'lunch break', 
-            'badlight', 'rain', 'innings break', 'delayed', 'live'
-        ]
-        if any(w in fl_lower for w in live_keywords) or re.search(r'\(\d+\.?\d*\)', full_text):
-            is_live = True
-
-        if is_live:
-            venue = filtered[0] if filtered else ""
-            status = filtered[-1] if len(filtered) > 1 else ""
-            scores_parts = filtered[1:-1] if len(filtered) > 2 else []
-            scores_str = " | ".join(scores_parts)
-            is_sl = is_sri_lanka_match(title, full_text, filtered)
-
-            matches.append({
-                "title": title,
-                "venue": venue,
-                "status": status,
-                "scores": scores_str,
-                "raw_strings": filtered,
-                "is_sl": is_sl
-            })
-
-    # Prioritize Sri Lanka national and league matches at top
-    matches.sort(key=lambda m: (not m['is_sl'], m['title']))
-    return matches
 
 TEAM_NAMES_SINHALA = {
     "ENG": "එංගලන්තය",
@@ -188,22 +82,22 @@ TEAM_NAMES_SINHALA = {
 }
 
 def translate_team_name(name: str) -> str:
-    clean = re.sub(r'[^a-zA-Z\s]', '', name).strip()
-    return TEAM_NAMES_SINHALA.get(clean.upper(), clean)
+    clean = re.sub(r'[^a-zA-Z\s]', '', name or '').strip()
+    return TEAM_NAMES_SINHALA.get(clean.upper(), clean or "ශ්‍රී ලංකාව")
 
-def translate_match_title_sinhala(title: str) -> str:
-    t = title
-    for k, v in TEAM_NAMES_SINHALA.items():
-        t = re.sub(r'\b' + re.escape(k) + r'\b', v, t, flags=re.I)
-    t = re.sub(r'\s+vs\s+', ' සහ ', t, flags=re.I)
-    t = re.sub(r'(\d+)(?:st|nd|rd|th)\s+Match', r'\1 වන තරගය', t, flags=re.I)
-    t = re.sub(r'(\d+)(?:st|nd|rd|th)\s+Test', r'\1 වන ටෙස්ට් තරගය', t, flags=re.I)
-    t = re.sub(r'(\d+)(?:st|nd|rd|th)\s+T20I?', r'\1 වන විස්සයි විස්ස තරගය', t, flags=re.I)
-    t = re.sub(r'(\d+)(?:st|nd|rd|th)\s+ODI', r'\1 වන එක්දින තරගය', t, flags=re.I)
-    return t
+def translate_match_desc_sinhala(desc: str) -> str:
+    d = desc or ""
+    d = re.sub(r'(\d+)(?:st|nd|rd|th)\s+Match', r'\1 වන තරගය', d, flags=re.I)
+    d = re.sub(r'(\d+)(?:st|nd|rd|th)\s+Test', r'\1 වන ටෙස්ට් තරගය', d, flags=re.I)
+    d = re.sub(r'(\d+)(?:st|nd|rd|th)\s+ODI', r'\1 වන එක්දින තරගය', d, flags=re.I)
+    d = re.sub(r'(\d+)(?:st|nd|rd|th)\s+T20I?', r'\1 වන විස්සයි විස්ස තරගය', d, flags=re.I)
+    d = re.sub(r'Final', 'අවසාන මහා තරගය', d, flags=re.I)
+    d = re.sub(r'Semi[- ]?Final', 'අවසන් පූර්ව තරගය', d, flags=re.I)
+    d = re.sub(r'Group\s+([A-Z])', r'\1 කාණ්ඩයේ තරගය', d, flags=re.I)
+    return d
 
 def translate_status_sinhala(status: str) -> str:
-    st = status
+    st = status or ""
     for k, v in TEAM_NAMES_SINHALA.items():
         st = re.sub(r'\b' + re.escape(k) + r'\b', v, st, flags=re.I)
     st = re.sub(r'opt to bowl|opt to field', 'කාසියේ වාසිය දිනා පළමුව පන්දු යැවීමට තීරණය කළා', st, flags=re.I)
@@ -221,127 +115,261 @@ def translate_status_sinhala(status: str) -> str:
     st = re.sub(r'Stumps', 'දිනය නිමාවට පත්ව තිබෙනවා', st, flags=re.I)
     st = re.sub(r'won by (\d+) wkts?', r'කඩුලු \1කින් ජයග්‍රහණය කළා', st, flags=re.I)
     st = re.sub(r'won by (\d+) runs?', r'ලකුණු \1කින් ජයග්‍රහණය කළා', st, flags=re.I)
+    st = re.sub(r'Match starts at', 'තරගය ආරම්භ වීමට නියමිත වේලාව', st, flags=re.I)
     return st
 
-def format_score_speech_sinhala(raw_strings: list) -> str:
-    """Converts scorecard elements like ['England', 'ENG', '159-0 (23.1)', 'Sri Lanka', 'SL'] into natural Sinhala speech."""
+def format_score_speech_from_json(info: dict, score: dict) -> tuple:
+    """
+    Parses Cricbuzz structured matchScore JSON into:
+    (short_summary_string, natural_sinhala_speech_string)
+    """
+    team1 = info.get('team1', {})
+    team2 = info.get('team2', {})
+    t1_sname = team1.get('teamSName') or team1.get('teamName') or 'Team 1'
+    t2_sname = team2.get('teamSName') or team2.get('teamName') or 'Team 2'
+    t1_name_si = translate_team_name(team1.get('teamName', ''))
+    t2_name_si = translate_team_name(team2.get('teamName', ''))
+    
     speech_parts = []
-    i = 0
-    while i < len(raw_strings):
-        s = raw_strings[i].strip()
-        m = re.match(r'^(\d+)-(\d+)(?:\s*\(([\d\.]+)\))?$', s)
-        if m:
-            runs, wkts, overs = m.groups()
-            team_label = ''
-            if i > 0:
-                team_label = translate_team_name(raw_strings[i-1])
-            if overs:
-                if '.' in overs:
-                    ov, b = overs.split('.')
-                    ov_str = f"පන්දුවාර {ov}යි පන්දු {b}ක් අවසානයේ"
-                else:
-                    ov_str = f"පන්දුවාර {overs}ක් අවසානයේ"
-            else:
-                ov_str = ""
-            
-            w_str = "කිසිවෙකු නොදැවී" if wkts == "0" else f"කඩුලු {wkts}කට"
-            part = f"{team_label} කණ්ඩායම {ov_str} {w_str} ලකුණු {runs}ක් ලබා සිටිනවා".strip()
-            speech_parts.append(part)
-        elif re.match(r'^\d+$', s) and i > 0 and len(s) >= 2:
-            team_label = translate_team_name(raw_strings[i-1])
-            speech_parts.append(f"{team_label} කණ්ඩායම සියලු දෙනා දැවී ලකුණු {s}ක් ලබා ගත්තා")
-        i += 1
-    return ". ".join(speech_parts)
+    short_parts = []
 
-def clean_score_for_speech(scores: str, status: str) -> str:
-    """Formats scores and overs into smooth speech friendly phrasing."""
-    clean = scores.replace("&", "සහ").replace("|", " ").strip()
-    clean = re.sub(r'\s+', ' ', clean)
-    return clean
+    # Team 1 Innings
+    t1_inngs = (score.get('team1Score') or {}).get('inngs1')
+    if t1_inngs:
+        runs = t1_inngs.get('runs', 0)
+        wkts = t1_inngs.get('wickets', 0)
+        overs = str(t1_inngs.get('overs', ''))
+        short_parts.append(f"{t1_sname}: {runs}/{wkts} ({overs} ov)")
+        ov_str = ""
+        if overs:
+            if '.' in overs:
+                ov, b = overs.split('.')
+                ov_str = f"පන්දුවාර {ov}යි පන්දු {b}ක් අවසානයේ"
+            else:
+                ov_str = f"පන්දුවාර {overs}ක් අවසානයේ"
+        w_str = "කිසිවෙකු නොදැවී" if wkts == 0 else f"කඩුලු {wkts}කට"
+        speech_parts.append(f"{t1_name_si} කණ්ඩායම {ov_str} {w_str} ලකුණු {runs}ක් ලබා සිටිනවා".strip())
+
+    # Team 2 Innings
+    t2_inngs = (score.get('team2Score') or {}).get('inngs1')
+    if t2_inngs:
+        runs = t2_inngs.get('runs', 0)
+        wkts = t2_inngs.get('wickets', 0)
+        overs = str(t2_inngs.get('overs', ''))
+        short_parts.append(f"{t2_sname}: {runs}/{wkts} ({overs} ov)")
+        ov_str = ""
+        if overs:
+            if '.' in overs:
+                ov, b = overs.split('.')
+                ov_str = f"පන්දුවාර {ov}යි පන්දු {b}ක් අවසානයේ"
+            else:
+                ov_str = f"පන්දුවාර {overs}ක් අවසානයේ"
+        w_str = "කිසිවෙකු නොදැවී" if wkts == 0 else f"කඩුලු {wkts}කට"
+        speech_parts.append(f"{t2_name_si} කණ්ඩායම {ov_str} {w_str} ලකුණු {runs}ක් ලබා සිටිනවා".strip())
+
+    short_summary = " | ".join(short_parts)
+    speech_summary = ". ".join(speech_parts)
+    return short_summary, speech_summary
+
+def fetch_sri_lanka_schedule_matches() -> dict:
+    """
+    Directly scrapes https://www.cricbuzz.com/cricket-team/sri-lanka/5/schedule.
+    Filters and extracts ONLY Sri Lanka matches.
+    Identifies any live match currently in progress, or upcoming Sri Lanka matches.
+    """
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5'
+    }
+    try:
+        req = urllib.request.Request(CRICBUZZ_SL_SCHEDULE_URL, headers=headers)
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            html = resp.read().decode('utf-8', errors='ignore')
+    except Exception as e:
+        print(f"[Cricket Engine] Cricbuzz Sri Lanka schedule fetch error: {e}")
+        return {"live": None, "upcoming": None, "all": []}
+
+    pos = html.find('teamMatchesData')
+    if pos == -1:
+        print("[Cricket Engine] teamMatchesData not found in Sri Lanka schedule page.")
+        return {"live": None, "upcoming": None, "all": []}
+
+    bracket_start = html.find('[', pos)
+    brackets = 0
+    end_idx = -1
+    for i in range(bracket_start, len(html)):
+        if html[i] == '[':
+            brackets += 1
+        elif html[i] == ']':
+            brackets -= 1
+            if brackets == 0:
+                end_idx = i + 1
+                break
+
+    if end_idx == -1:
+        return {"live": None, "upcoming": None, "all": []}
+
+    raw_str = html[bracket_start:end_idx]
+    raw_json = raw_str.replace(r'\"', '"').replace(r'\\', '\\')
+    try:
+        data = json.loads(raw_json)
+    except Exception as e:
+        print(f"[Cricket Engine] JSON parse error: {e}")
+        return {"live": None, "upcoming": None, "all": []}
+
+    live_match = None
+    upcoming_match = None
+    all_matches = []
+
+    for day in data:
+        key = day.get('matchDetailsMap', {}).get('key', '')
+        for m in day.get('matchDetailsMap', {}).get('match', []):
+            info = m.get('matchInfo', {})
+            state = (info.get('state') or '').lower()
+            all_matches.append(m)
+            # Detect live match
+            if not live_match and state in ['in progress', 'live', 'innings break', 'tea break', 'lunch break', 'rain delay', 'stumps']:
+                live_match = m
+            # Detect next upcoming match
+            elif not upcoming_match and state in ['preview', 'upcoming']:
+                upcoming_match = m
+
+    return {
+        "live": live_match,
+        "upcoming": upcoming_match,
+        "all": all_matches
+    }
 
 def get_cricket_highlights_text(lang: str = "si") -> dict:
     """
-    Fetches live matches from Cricbuzz.
-    If no match is currently live, returns has_live=False.
-    If live match is in progress, formats bilingual RJ commentary for Radio Four D M.
+    Fetches Sri Lanka matches strictly from:
+    https://www.cricbuzz.com/cricket-team/sri-lanka/5/schedule
+    Filters and broadcasts ONLY Sri Lanka matches.
     """
-    matches = fetch_cricbuzz_live_matches()
+    schedule_data = fetch_sri_lanka_schedule_matches()
+    live_match = schedule_data.get("live")
+    upcoming_match = schedule_data.get("upcoming")
     time_str = time.strftime("%H:%M")
 
-    if not matches:
+    # 1. LIVE SRI LANKA MATCH IN PROGRESS
+    if live_match:
+        info = live_match.get("matchInfo", {})
+        sc = live_match.get("matchScore", {})
+        series = info.get("seriesName", "ජාත්‍යන්තර ක්‍රිකට් තරගාවලිය")
+        desc = info.get("matchDesc", "සජීවී තරගය")
+        desc_si = translate_match_desc_sinhala(desc)
+        status = info.get("status", "")
+        status_si = translate_status_sinhala(status)
+        
+        t1_en = info.get("team1", {}).get("teamName", "Team 1")
+        t2_en = info.get("team2", {}).get("teamName", "Team 2")
+        t1_si = translate_team_name(t1_en)
+        t2_si = translate_team_name(t2_en)
+        
+        venue_info = info.get("venueInfo", {})
+        venue_str = f"{venue_info.get('ground', '')}, {venue_info.get('city', '')}".strip(', ')
+        
+        short_score, score_speech = format_score_speech_from_json(info, sc)
+        score_detail = f"{score_speech}." if score_speech else (f"ලකුණු: {short_score}." if short_score else "")
+
+        if lang == "en":
+            script = (
+                f"Hello sports fans! Here is your official Cricbuzz Sri Lanka live cricket update on Radio Four D M. "
+                f"Currently live in {series}, {desc} between {t1_en} and {t2_en} at {venue_str}: {status}. "
+                f"{short_score}. "
+                f"Keep cheering for the Sri Lanka Lions and stay tuned to Radio Four D M for the greatest hits!"
+            )
+            headline = f"🦁 Cricbuzz Live: {t1_en} vs {t2_en} ({desc})"
+            summary = f"{status} | {short_score}"
+        else:
+            script = (
+                f"ආයුබෝවන් සියලුම ක්‍රිකට් ලෝලී යාලුවනේ! මේ Radio Four D M වෙතින් Cricbuzz නිල ශ්‍රී ලංකා සජීවී ක්‍රිකට් තොරතුරු විකාශයයි. "
+                f"මේ වන විට {series} තරගාවලියේ {desc_si} ලෙස පැවැත්වෙන {t1_si} සහ {t2_si} අතර තරගයේ තත්ත්වය: {status_si}. "
+                f"{score_detail} "
+                f"අපේ ශ්‍රී ලංකා සිංහයන්ට ජයග්‍රහණය ප්‍රාර්ථනා කරමින් හොඳම ගීත සමඟින් දිගටම රැඳී සිටින්න ඔබේ Radio Four D M සමඟින්!"
+            )
+            headline = f"🦁 Cricbuzz සජීවී ක්‍රිකට්: {t1_si} සහ {t2_si} ({desc_si})"
+            summary = f"{status_si} | {short_score}"
+
         return {
-            "has_live": False,
-            "matches_count": 0,
-            "matches": [],
-            "headline": "ක්‍රියාකාරී සජීවී තරග නොමැත (No Active Live Matches)",
-            "summary": "Cricbuzz සජීවී දත්ත අනුව මේ මොහොතේ ක්‍රියාත්මක සජීවී ක්‍රිකට් තරග නොමැත. සජීවී තරගයක් ආරම්භ වූ වහාම විකාශය කෙරේ.",
-            "script": None,
+            "has_live": True,
+            "is_sl": True,
+            "matches_count": 1,
+            "headline": headline,
+            "summary": summary,
+            "script": script,
+            "scores": short_score,
+            "venue": venue_str,
+            "source": CRICBUZZ_SL_SCHEDULE_URL,
             "time": time_str
         }
 
-    # Pick top live match (prioritizing Sri Lanka if active)
-    top = matches[0]
-    title = top["title"]
-    status = top["status"]
-    scores = top["scores"]
-    clean_scores = clean_score_for_speech(scores, status)
-
-    if lang == "en":
-        script = (
-            f"Hello sports fans! Here is your latest live cricket scorecard from Cricbuzz on Radio Four D M. "
-            f"Currently live in {title}: {status}. Current score: {scores}. "
-            f"Keep listening to Radio Four D M for continuous live match action and the greatest hits!"
-        )
-        headline = f"🏏 Live on Cricbuzz: {title}"
-        summary = f"{status}. Score: {scores}"
-    else:
-        # Full Natural Sinhala RJ presentation (All team names ENG -> එංගලන්තය, scores & states fully in Sinhala)
-        title_si = translate_match_title_sinhala(title)
+    # 2. NO ACTIVE LIVE SRI LANKA MATCH (Upcoming Schedule from Sri Lanka Page)
+    if upcoming_match:
+        info = upcoming_match.get("matchInfo", {})
+        series = info.get("seriesName", "ක්‍රිකට් තරගාවලිය")
+        desc = info.get("matchDesc", "තරගය")
+        desc_si = translate_match_desc_sinhala(desc)
+        status = info.get("status", "")
         status_si = translate_status_sinhala(status)
-        score_speech_si = format_score_speech_sinhala(top.get("raw_strings", []))
-        score_detail = f"{score_speech_si}." if score_speech_si else f"ලකුණු පුවරුව: {clean_scores}."
+        
+        t1_en = info.get("team1", {}).get("teamName", "Team 1")
+        t2_en = info.get("team2", {}).get("teamName", "Team 2")
+        t1_si = translate_team_name(t1_en)
+        t2_si = translate_team_name(t2_en)
+        
+        venue_info = info.get("venueInfo", {})
+        venue_str = f"{venue_info.get('ground', '')}, {venue_info.get('city', '')}".strip(', ')
 
-        match_phrase = f"{title_si} හි" if "තරගය" in title_si else f"{title_si} තරගයේ"
-        if top.get("is_sl"):
+        if lang == "en":
             script = (
-                f"ආයුබෝවන් සියලුම ක්‍රිකට් ලෝලී යාලුවනේ! මේ Cricbuzz වෙතින් Radio Four D M විශේෂ සජීවී ක්‍රිකට් තොරතුරු විකාශයයි. "
-                f"අද දින අපේ ශ්‍රී ලංකා කණ්ඩායම සහභාගී වන {match_phrase} සජීවී තත්ත්වය මෙසේයි. "
-                f"{status_si}. "
-                f"{score_detail} "
-                f"ශ්‍රී ලංකා සිංහයන්ට ජය පතමින් හොඳම ගීත සමඟින් දිගටම රැඳී සිටින්න ඔබේ Radio Four D M සමඟින්!"
+                f"Hello sports fans! According to Cricbuzz Sri Lanka schedule, there is no active live match right now. "
+                f"The upcoming match for Sri Lanka is {series}, {desc} featuring {t1_en} and {t2_en} at {venue_str}. {status}. "
+                f"Stay tuned to Radio Four D M for live ball-by-ball updates and the greatest hits!"
             )
-            headline = f"🦁 Cricbuzz සජීවී ක්‍රිකට්: {title_si} (ශ්‍රී ලංකාව)"
+            headline = f"🦁 Cricbuzz Next Match: {t1_en} vs {t2_en} ({desc})"
+            summary = f"No live match right now. Next: {t1_en} vs {t2_en} ({status})"
         else:
             script = (
-                f"ආයුබෝවන් සියලුම ක්‍රිකට් ලෝලී යාලුවනේ! මේ Cricbuzz වෙතින් Radio Four D M සජීවී ක්‍රිකට් තොරතුරු විකාශයයි. "
-                f"මේ වන විට සජීවීව පැවැත්වෙන {match_phrase} තත්ත්වය: {status_si}. "
-                f"{score_detail} "
-                f"හොඳම ගීත සමඟින් ක්‍රිකට් පිටියේ උණුසුම් තොරතුරු දැනගන්න, දිගටම රැඳී සිටින්න ඔබේ Radio Four D M සමඟින්!"
+                f"ආයුබෝවන් සියලුම ක්‍රිකට් ලෝලී යාලුවනේ! Cricbuzz ශ්‍රී ලංකා තරග කාලසටහනට අනුව මේ මොහොතේ ශ්‍රී ලංකා සජීවී තරගයක් පැවැත්වෙන්නේ නැත. "
+                f"අපේ ශ්‍රී ලංකා කණ්ඩායම සහභාගී වන මීළඟ තරගය {series} හි {desc_si} ලෙස {t1_si} සහ {t2_si} අතර {venue_str} හිදී පැවැත්වීමට නියමිතයි. {status_si}. "
+                f"හොඳම ගීත සමඟින් දිගටම Radio Four D M සමඟ රැඳී සිටින්න!"
             )
-            headline = f"🏏 Cricbuzz සජීවී ක්‍රිකට්: {title_si}"
-        summary = f"{status_si} | {scores}"
+            headline = f"🦁 Cricbuzz ශ්‍රී ලංකා මීළඟ තරගය: {t1_si} සහ {t2_si}"
+            summary = f"මේ මොහොතේ සජීවී තරග නොමැත. මීළඟ තරගය: {t1_si} සහ {t2_si} ({status_si})"
+
+        return {
+            "has_live": False,
+            "is_sl": True,
+            "matches_count": 0,
+            "headline": headline,
+            "summary": summary,
+            "script": script,
+            "venue": venue_str,
+            "source": CRICBUZZ_SL_SCHEDULE_URL,
+            "time": time_str
+        }
 
     return {
-        "has_live": True,
-        "matches_count": len(matches),
-        "matches": matches,
-        "top_match": top,
-        "lang": lang,
-        "headline": headline,
-        "summary": summary,
-        "script": script,
-        "source": "Cricbuzz Live Scores (https://www.cricbuzz.com/cricket-match/live-scores)",
+        "has_live": False,
+        "is_sl": True,
+        "matches_count": 0,
+        "headline": "ක්‍රියාකාරී සජීවී තරග නොමැත (No Active Sri Lanka Matches)",
+        "summary": "Cricbuzz ශ්‍රී ලංකා දත්ත අනුව මේ මොහොතේ සජීවී තරග නොමැත. තරගයක් ආරම්භ වූ වහාම විකාශය කෙරේ.",
+        "script": None,
+        "source": CRICBUZZ_SL_SCHEDULE_URL,
         "time": time_str
     }
 
 def build_cricket_broadcast_audio(lang: str = "si", preloaded_data: dict = None) -> str:
     """
-    Synthesizes the live cricket update audio using Gemini AI and prepends the sports fanfare chime.
-    Returns path to the finished ready-to-air MP3 file, or None if no live matches.
+    Synthesizes the Sri Lanka live cricket update audio using Gemini AI and prepends the sports fanfare chime.
+    Returns path to the ready-to-air MP3 file.
     """
     data = preloaded_data or get_cricket_highlights_text(lang)
-    if not data.get("has_live") or not data.get("script"):
-        print("[Cricket Engine] No live matches currently on Cricbuzz to broadcast.")
+    if not data or not data.get("script"):
+        print("[Cricket Engine] No cricket commentary text available to broadcast.")
         return None
 
     script = data["script"]
@@ -353,13 +381,13 @@ def build_cricket_broadcast_audio(lang: str = "si", preloaded_data: dict = None)
         voice_key=voice_key,
         lang=lang,
         provider="gemini",
-        filename_prefix="cricket_cricbuzz",
+        filename_prefix="cricket_sl_cricbuzz",
         add_chime=False
     )
     if not raw_voice_file or not os.path.exists(raw_voice_file):
         raise RuntimeError("Failed to generate cricket speech audio")
         
-    out_file = os.path.join(CACHE_DIR, f"cricbuzz_broadcast_{lang}_{int(time.time())}.mp3")
+    out_file = os.path.join(CACHE_DIR, f"cricbuzz_sl_broadcast_{lang}_{int(time.time())}.mp3")
     ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
 
     # Prepend sports intro jingle
@@ -383,4 +411,3 @@ def build_cricket_broadcast_audio(lang: str = "si", preloaded_data: dict = None)
             print(f"[Cricket] Jingle mix error: {e}")
 
     return raw_voice_file
-
