@@ -18,7 +18,7 @@ _STREAM_CACHE: Dict[str, Any] = {}
 
 def is_unwanted_unofficial_cover(title: str, uploader: str = "") -> bool:
     """
-    Detects and filters out amateur / unofficial cover songs, reactions, and karaoke.
+    Detects and filters out amateur / unofficial cover songs, reactions, karaoke, and old classical tracks.
     Prioritizes official master recordings, official music videos, Coke studio sessions, and official remixes.
     """
     t = (title or "").lower()
@@ -37,15 +37,20 @@ def is_unwanted_unofficial_cover(title: str, uploader: str = "") -> bool:
         if p in t:
             return True
 
-    # Reject old classical songs / retro oldies (Station plays ONLY modern hits & remixes)
+    # Reject old classical songs / retro oldies (Station plays ONLY modern hits & modern remixes)
     old_classic_patterns = [
         "old song", "classic song", "golden oldies", "70s", "80s", "90s hits",
         "purana", "parana sindu", "calypso", "vintage", "retro live",
         "old hits", "nonstop oldies", "sarala gee", "classical", "gramophone",
-        "bailaya", "old baila"
+        "bailaya", "old baila", "clarence wijewardena", "clarence", "h.r. jothipala",
+        "hr jothipala", "jothipala", "milton mallawarachchi", "milton", "amaradeva",
+        "pandith amaradeva", "victor rathnayake", "sunil santha", "c.t. fernando",
+        "ct fernando", "edward jayakody", "t.m. jayaratne", "tm jayaratne",
+        "sanath nandashiri", "neela wickramasinghe", "old cassette", "parana geetha",
+        "cassette", "retro hits", "alborada", "parana"
     ]
     for p in old_classic_patterns:
-        if p in t:
+        if p in t or p in u:
             return True
 
     # If the word 'cover' is present:
@@ -118,7 +123,21 @@ CHART_CATALOGS = {
         {"title": "Nidi Nena (නිදි නේනා)", "artist": "Sanuka Wickramasinghe", "query": "ytsearch1:Nidi Nena Sanuka Official"},
         {"title": "Soya (සොයා)", "artist": "Ridma Weerawardena", "query": "ytsearch1:Soya Ridma Weerawardena Charitha Attalage Official"},
         {"title": "Hada Wela (හඬ වෙලා)", "artist": "Bathiya and Santhush", "query": "ytsearch1:Hada Wela Bathiya and Santhush Official"},
-        {"title": "Kandula (කඳුල)", "artist": "Centigradz", "query": "ytsearch1:Kandula Centigradz Official"}
+        {"title": "Kandula (කඳුල)", "artist": "Centigradz", "query": "ytsearch1:Kandula Centigradz Official"},
+        {"title": "Galana Ganga (ගලන ගංගා)", "artist": "Charitha Attalage & Ridma", "query": "ytsearch1:Galana Ganga Charitha Attalage Ridma Weerawardena Official"},
+        {"title": "Sanda Eliye (සඳ එළියේ)", "artist": "Dhanith Sri", "query": "ytsearch1:Sanda Eliye Dhanith Sri Official Music Video"},
+        {"title": "Tharu Atharin (තරු අතරින්)", "artist": "Romesh Sugathapala", "query": "ytsearch1:Tharu Atharin Romesh Sugathapala Official"},
+        {"title": "Mage Hitha Thawamath (මගේ හිත තවමත්)", "artist": "Sanuka Wickramasinghe", "query": "ytsearch1:Mage Hitha Thawamath Sanuka Official"},
+        {"title": "Bambara Patikki (බඹර පැටිකී)", "artist": "Bathiya and Santhush", "query": "ytsearch1:Bambara Patikki Bathiya Santhush Official"},
+        {"title": "Mage Pem Purawatha (මගේ පෙම් පුරාවත)", "artist": "Ravi Jay", "query": "ytsearch1:Mage Pem Purawatha Ravi Jay Official"},
+        {"title": "Sithuwili (සිතිවිලි)", "artist": "Centigradz", "query": "ytsearch1:Sithuwili Centigradz Official"},
+        {"title": "Piyambanna (පියඹන්න)", "artist": "Daddy Band", "query": "ytsearch1:Piyambanna Daddy Band Official Video"},
+        {"title": "Adare Hithenawa (ආදරේ හිතෙනවා)", "artist": "Romesh Sugathapala", "query": "ytsearch1:Adare Hithenawa Romesh Sugathapala Official"},
+        {"title": "Kanya (කන්‍යා)", "artist": "Smokio", "query": "ytsearch1:Kanya Smokio Official Music Video"},
+        {"title": "Mage Wenawada (මගේ වෙනවද)", "artist": "Dinesh Gamage", "query": "ytsearch1:Mage Wenawada Dinesh Gamage Official"},
+        {"title": "Sandarenu (සඳරේණු)", "artist": "Sanuka Wickramasinghe", "query": "ytsearch1:Sandarenu Sanuka Official Music Video"},
+        {"title": "Ahasa Usata (අහස උසට)", "artist": "Dhanith Sri", "query": "ytsearch1:Ahasa Usata Dhanith Sri Official"},
+        {"title": "Heenayakda Me (හීනයක්ද මේ)", "artist": "Kanchana Anuradhi", "query": "ytsearch1:Heenayakda Me Kanchana Anuradhi Official"}
     ],
     "sinhala_remix": [
         {"title": "Thawthisa (Trap Remix)", "artist": "Smokio DJ Remix", "query": "ytsearch1:Thawthisa Trap DJ Remix"},
@@ -138,7 +157,12 @@ CHART_CATALOGS = {
         {"title": "Haadu (Deep House Remix)", "artist": "Kanchana Anuradhi Remix", "query": "ytsearch1:Haadu Deep House Remix Kanchana"},
         {"title": "Dumbarata Peyana (Club Remix)", "artist": "Dinesh Gamage Remix", "query": "ytsearch1:Dumbarata Peyana DJ Remix"},
         {"title": "Nawathinna Ba (Trap Remix)", "artist": "Drill Team Remix", "query": "ytsearch1:Nawathinna Ba Trap Remix"},
-        {"title": "Nela Ganna Baha (Remix)", "artist": "Centigradz Remix", "query": "ytsearch1:Nela Ganna Baha Remix Centigradz"}
+        {"title": "Nela Ganna Baha (Remix)", "artist": "Centigradz Remix", "query": "ytsearch1:Nela Ganna Baha Remix Centigradz"},
+        {"title": "Galana Ganga (Club Remix)", "artist": "Charitha Attalage Remix", "query": "ytsearch1:Galana Ganga Remix Charitha Attalage"},
+        {"title": "Sanda Eliye (EDM Mix)", "artist": "Dhanith Sri Remix", "query": "ytsearch1:Sanda Eliye Remix Dhanith Sri"},
+        {"title": "Bambara Patikki (Party Remix)", "artist": "Bathiya Santhush Remix", "query": "ytsearch1:Bambara Patikki DJ Remix Bathiya"},
+        {"title": "Awasan Satana (Club Remix)", "artist": "Sanuka Remix", "query": "ytsearch1:Sanuka Awasan Satana Remix"},
+        {"title": "Soya (DJ Remix)", "artist": "Ridma Weerawardena Remix", "query": "ytsearch1:Soya Ridma Weerawardena Remix"}
     ],
     "hindi": [
         {"title": "Kesariya (Brahmāstra)", "artist": "Arijit Singh", "query": "ytsearch1:Kesariya Brahmastra Arijit Singh Ranbir Kapoor"},
@@ -375,14 +399,27 @@ class AutoDJEngine:
                             continue
                         cand_title = cand.get('title', '')
                         cand_uploader = cand.get('uploader', '')
-                        # Filter out unofficial / amateur cover songs
+                        # 1. Filter out unofficial / amateur cover songs and old classics
                         if is_unwanted_unofficial_cover(cand_title, cand_uploader):
-                            print(f"[AutoDJ] Filtered out unofficial cover: '{cand_title}' ({cand_uploader})")
+                            print(f"[AutoDJ] Filtered out cover or classic track: '{cand_title}' ({cand_uploader})")
                             continue
+
+                        # 2. Filter out channels with fewer than 10,000 subscribers (Aduma 10k subscribers)
+                        followers = cand.get('channel_follower_count')
+                        if followers is None:
+                            followers = cand.get('subscriber_count')
+                        if followers is not None and followers < 10000:
+                            print(f"[AutoDJ] Rejected low subscriber channel ({followers} < 10,000): '{cand_title}' ({cand_uploader})")
+                            continue
+                        elif followers is None:
+                            is_verified = bool(cand.get('channel_is_verified'))
+                            views = cand.get('view_count') or 0
+                            if not is_verified and views < 15000:
+                                print(f"[AutoDJ] Rejected unverified channel with low views ({views} < 15k): '{cand_title}' ({cand_uploader})")
+                                continue
+
                         entry = cand
                         break
-                    if not entry and candidates:
-                        entry = candidates[0]
             except Exception as yt_err:
                 print(f"[AutoDJ] YouTube attempt: {yt_err}")
 
@@ -520,10 +557,9 @@ class AutoDJEngine:
 
     def _autodj_loop(self):
         print("[AutoDJ] Auto-DJ 24/7 Engine Loop active (Strict Ordered Rotation Mode).")
-        # Allow server to bind port
-        time.sleep(1.5)
+        time.sleep(1.0)
 
-        executor = concurrent.futures.ThreadPoolExecutor(max_workers=4, thread_name_prefix="AutoDJWorker")
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=8, thread_name_prefix="AutoDJWorker")
 
         while self.is_running:
             try:
@@ -538,14 +574,15 @@ class AutoDJEngine:
                                     self.station_engine.playlist.append(first_track)
                                 print(f"[AutoDJ] Fast bootstrap track: {first_track['title']} ({first_track['duration']}s)")
 
+                    # 2. Maintain a full 10-song standby queue in exact rotation sequence
                     needed = 10 - len(self.station_engine.playlist)
                     if needed > 0 and self.is_running and self.enabled:
-                        batch_size = min(needed, 5)
+                        batch_size = needed
                         items_to_queue = []
                         for _ in range(batch_size):
                             item = self.get_next_unplayed_catalog_item()
                             if not item:
-                                # Reset history to allow fresh continuous rotation
+                                # Reset history if entire catalog was played in 24 hours
                                 with self.station_engine.lock:
                                     self.station_engine.played_history.clear()
                                 item = self.get_next_unplayed_catalog_item()
@@ -557,7 +594,7 @@ class AutoDJEngine:
                             future_to_idx = {executor.submit(self.resolve_single_chart_item, it): idx for idx, it in enumerate(items_to_queue)}
                             resolved_tracks = [None] * len(items_to_queue)
                             try:
-                                for f in concurrent.futures.as_completed(future_to_idx, timeout=35):
+                                for f in concurrent.futures.as_completed(future_to_idx, timeout=45):
                                     idx = future_to_idx[f]
                                     try:
                                         resolved_tracks[idx] = f.result()

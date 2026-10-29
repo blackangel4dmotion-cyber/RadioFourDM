@@ -355,10 +355,13 @@ class AudioStationEngine:
         return t[:35] # Match primary 35 chars
 
     def is_duplicate(self, title: str, url: str = "") -> bool:
-        """Strict check to prevent playing the same song within 1 hour (3600 seconds)."""
+        """Strict check to prevent playing the same song twice on the same day (86400 seconds lockout)."""
         norm = self._normalize_title(title)
         now = time.time()
         with self.lock:
+            # Clean up history entries older than 24 hours (86400 seconds)
+            self.played_history = {k: v for k, v in self.played_history.items() if (now - v) < 86400}
+
             # 1. Check active playing decks
             for deck in [self.deck_a, self.deck_b]:
                 if deck.is_active and deck.track:
@@ -374,10 +377,10 @@ class AudioStationEngine:
                 if url and t.get("original_url") == url:
                     return True
 
-            # 3. Check 1-hour played history (3600s repeat lockout)
+            # 3. Check 24-hour (same day) played history (86400s repeat lockout)
             if norm and norm in self.played_history:
                 last_time = self.played_history[norm]
-                if now - last_time < 3600:
+                if now - last_time < 86400:
                     return True
 
         return False
@@ -583,8 +586,8 @@ class AudioStationEngine:
         return b"\xff\xfb\x90d" * 128
 
     def subscribe_client(self) -> queue.Queue:
-        # 300 chunks x 1024 bytes = ~18 seconds capacity (prevents queue overflow dropouts)
-        q = queue.Queue(maxsize=300)
+        # 120 chunks x 1024 bytes = ~7.5 seconds capacity (low-latency online streaming without backlog lag)
+        q = queue.Queue(maxsize=120)
         with self.lock:
             if self.burst_buffer:
                 for chunk in list(self.burst_buffer):
@@ -614,9 +617,9 @@ class AudioStationEngine:
                 try:
                     client_q.put_nowait(chunk)
                 except queue.Full:
-                    # Client buffer is backed up. Drain older frames to catch up smoothly
+                    # Client buffer is backed up. Fast-forward older frames (drain 30 chunks) to snap back to real-time
                     try:
-                        for _ in range(40):
+                        for _ in range(30):
                             client_q.get_nowait()
                         client_q.put_nowait(chunk)
                     except Exception:

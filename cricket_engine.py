@@ -275,19 +275,15 @@ def get_cricket_highlights_text(lang: str = "si") -> dict:
 
         if lang == "en":
             script = (
-                f"Hello sports fans! Here is your official Cricbuzz Sri Lanka live cricket update on Radio Four D M. "
-                f"Currently live in {series}, {desc} between {t1_en} and {t2_en} at {venue_str}: {status}. "
-                f"{short_score}. "
-                f"Keep cheering for the Sri Lanka Lions and stay tuned to Radio Four D M for the greatest hits!"
+                f"Cricbuzz Live Cricket: {desc} between {t1_en} and {t2_en}. {status}. "
+                f"{short_score}. Stay tuned to Radio Four D M!"
             )
             headline = f"🦁 Cricbuzz Live: {t1_en} vs {t2_en} ({desc})"
             summary = f"{status} | {short_score}"
         else:
             script = (
-                f"ආයුබෝවන් සියලුම ක්‍රිකට් ලෝලී යාලුවනේ! මේ Radio Four D M වෙතින් Cricbuzz නිල ශ්‍රී ලංකා සජීවී ක්‍රිකට් තොරතුරු විකාශයයි. "
-                f"මේ වන විට {series} තරගාවලියේ {desc_si} ලෙස පැවැත්වෙන {t1_si} සහ {t2_si} අතර තරගයේ තත්ත්වය: {status_si}. "
-                f"{score_detail} "
-                f"අපේ ශ්‍රී ලංකා සිංහයන්ට ජයග්‍රහණය ප්‍රාර්ථනා කරමින් හොඳම ගීත සමඟින් දිගටම රැඳී සිටින්න ඔබේ Radio Four D M සමඟින්!"
+                f"Cricbuzz සජීවී ක්‍රිකට් තොරතුරු: {desc_si} ලෙස {t1_si} සහ {t2_si} අතර තරගය. {status_si}. "
+                f"{score_detail} දිගටම රැඳී සිටින්න Radio Four D M සමඟින්!"
             )
             headline = f"🦁 Cricbuzz සජීවී ක්‍රිකට්: {t1_si} සහ {t2_si} ({desc_si})"
             summary = f"{status_si} | {short_score}"
@@ -324,17 +320,15 @@ def get_cricket_highlights_text(lang: str = "si") -> dict:
 
         if lang == "en":
             script = (
-                f"Hello sports fans! According to Cricbuzz Sri Lanka schedule, there is no active live match right now. "
-                f"The upcoming match for Sri Lanka is {series}, {desc} featuring {t1_en} and {t2_en} at {venue_str}. {status}. "
-                f"Stay tuned to Radio Four D M for live ball-by-ball updates and the greatest hits!"
+                f"Cricbuzz Cricket Update: Sri Lanka's next match is {desc} against {t2_en}. {status}. "
+                f"Stay tuned to Radio Four D M!"
             )
             headline = f"🦁 Cricbuzz Next Match: {t1_en} vs {t2_en} ({desc})"
             summary = f"No live match right now. Next: {t1_en} vs {t2_en} ({status})"
         else:
             script = (
-                f"ආයුබෝවන් සියලුම ක්‍රිකට් ලෝලී යාලුවනේ! Cricbuzz ශ්‍රී ලංකා තරග කාලසටහනට අනුව මේ මොහොතේ ශ්‍රී ලංකා සජීවී තරගයක් පැවැත්වෙන්නේ නැත. "
-                f"අපේ ශ්‍රී ලංකා කණ්ඩායම සහභාගී වන මීළඟ තරගය {series} හි {desc_si} ලෙස {t1_si} සහ {t2_si} අතර {venue_str} හිදී පැවැත්වීමට නියමිතයි. {status_si}. "
-                f"හොඳම ගීත සමඟින් දිගටම Radio Four D M සමඟ රැඳී සිටින්න!"
+                f"Cricbuzz ක්‍රිකට් තොරතුරු: ශ්‍රී ලංකාවේ ඊළඟ තරගය {desc_si} ලෙස {t1_si} සහ {t2_si} අතර. {status_si}. "
+                f"දිගටම රැඳී සිටින්න Radio Four D M සමඟින්!"
             )
             headline = f"🦁 Cricbuzz ශ්‍රී ලංකා මීළඟ තරගය: {t1_si} සහ {t2_si}"
             summary = f"මේ මොහොතේ සජීවී තරග නොමැත. මීළඟ තරගය: {t1_si} සහ {t2_si} ({status_si})"
