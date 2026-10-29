@@ -40,6 +40,23 @@ def ensure_cricket_intro_jingle():
 
 ensure_cricket_intro_jingle()
 
+def is_sri_lanka_match(title: str, text: str, raw_strings: list) -> bool:
+    """Robustly checks whether a match features Sri Lanka (national men, women, A-team, under-19)."""
+    t_low = title.lower()
+    full_low = text.lower()
+    sl_keywords = [
+        "sri lanka", "srilanka", "sl-w", "sl w", "sl a", "sl-u19", "lanka", "ceylon", "lionesses"
+    ]
+    if any(k in t_low for k in sl_keywords) or any(k in full_low for k in sl_keywords):
+        return True
+    if re.search(r'\b(sl|slc|slw|sla)\b', t_low) or re.search(r'\b(sl|slc|slw|sla)\b', full_low):
+        return True
+    for s in raw_strings:
+        s_clean = s.strip().upper()
+        if s_clean in ["SL", "SL-W", "SLW", "SLC", "SL-A", "SRI LANKA"]:
+            return True
+    return False
+
 def fetch_cricbuzz_live_matches() -> list:
     """
     Directly scrapes https://www.cricbuzz.com/cricket-match/live-scores.
@@ -115,7 +132,7 @@ def fetch_cricbuzz_live_matches() -> list:
             status = filtered[-1] if len(filtered) > 1 else ""
             scores_parts = filtered[1:-1] if len(filtered) > 2 else []
             scores_str = " | ".join(scores_parts)
-            is_sl = ("sri lanka" in title.lower() or "sl" in title.lower() or "sri lanka" in fl_lower)
+            is_sl = is_sri_lanka_match(title, full_text, filtered)
 
             matches.append({
                 "title": title,
@@ -285,13 +302,23 @@ def get_cricket_highlights_text(lang: str = "si") -> dict:
         score_detail = f"{score_speech_si}." if score_speech_si else f"ලකුණු පුවරුව: {clean_scores}."
 
         match_phrase = f"{title_si} හි" if "තරගය" in title_si else f"{title_si} තරගයේ"
-        script = (
-            f"ආයුබෝවන් සියලුම ක්‍රිකට් ලෝලී යාලුවනේ! මේ Cricbuzz වෙතින් Radio Four D M සජීවී ක්‍රිකට් තොරතුරු විකාශයයි. "
-            f"මේ වන විට සජීවීව පැවැත්වෙන {match_phrase} තත්ත්වය: {status_si}. "
-            f"{score_detail} "
-            f"හොඳම ගීත සමඟින් ක්‍රිකට් පිටියේ උණුසුම් තොරතුරු දැනගන්න, දිගටම රැඳී සිටින්න ඔබේ Radio Four D M සමඟින්!"
-        )
-        headline = f"🏏 Cricbuzz සජීවී ක්‍රිකට්: {title_si}"
+        if top.get("is_sl"):
+            script = (
+                f"ආයුබෝවන් සියලුම ක්‍රිකට් ලෝලී යාලුවනේ! මේ Cricbuzz වෙතින් Radio Four D M විශේෂ සජීවී ක්‍රිකට් තොරතුරු විකාශයයි. "
+                f"අද දින අපේ ශ්‍රී ලංකා කණ්ඩායම සහභාගී වන {match_phrase} සජීවී තත්ත්වය මෙසේයි. "
+                f"{status_si}. "
+                f"{score_detail} "
+                f"ශ්‍රී ලංකා සිංහයන්ට ජය පතමින් හොඳම ගීත සමඟින් දිගටම රැඳී සිටින්න ඔබේ Radio Four D M සමඟින්!"
+            )
+            headline = f"🦁 Cricbuzz සජීවී ක්‍රිකට්: {title_si} (ශ්‍රී ලංකාව)"
+        else:
+            script = (
+                f"ආයුබෝවන් සියලුම ක්‍රිකට් ලෝලී යාලුවනේ! මේ Cricbuzz වෙතින් Radio Four D M සජීවී ක්‍රිකට් තොරතුරු විකාශයයි. "
+                f"මේ වන විට සජීවීව පැවැත්වෙන {match_phrase} තත්ත්වය: {status_si}. "
+                f"{score_detail} "
+                f"හොඳම ගීත සමඟින් ක්‍රිකට් පිටියේ උණුසුම් තොරතුරු දැනගන්න, දිගටම රැඳී සිටින්න ඔබේ Radio Four D M සමඟින්!"
+            )
+            headline = f"🏏 Cricbuzz සජීවී ක්‍රිකට්: {title_si}"
         summary = f"{status_si} | {scores}"
 
     return {

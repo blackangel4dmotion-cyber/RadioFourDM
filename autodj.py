@@ -310,8 +310,14 @@ class AutoDJEngine:
             self.rotation_step = (self.rotation_step + 1) % 22
             return random.choice([dict(x, category="Sinhala") for x in CHART_CATALOGS["sinhala_regular"]])
 
-    def queue_single_chart_item(self, item: Dict[str, str]) -> Optional[Dict[str, Any]]:
-        """Resolve YouTube direct stream and add to queue with strict duplicate check."""
+    def resolve_single_chart_item(self, item: Dict[str, str]) -> Optional[Dict[str, Any]]:
+        """
+        Resolves YouTube direct stream for a catalog item without modifying playlist.
+        Enforces:
+        - 1-hour duplicate check
+        - Filter out amateur / unofficial cover songs
+        - Hard 6-minute cap (360 seconds)
+        """
         query = item.get("query") or item.get("title")
         
         # Check title before expensive YouTube extraction
@@ -328,9 +334,9 @@ class AutoDJEngine:
         if not entry or not entry.get('url'):
             yt_query = query
             if yt_query.startswith("ytsearch1:"):
-                yt_query = "ytsearch4:" + yt_query[len("ytsearch1:"):]
+                yt_query = "ytsearch2:" + yt_query[len("ytsearch1:"):]
             elif not yt_query.startswith("ytsearch") and not yt_query.startswith("http"):
-                yt_query = f"ytsearch4:{yt_query} Official"
+                yt_query = f"ytsearch2:{yt_query} Official"
 
             try:
                 ydl_opts = {
@@ -373,7 +379,7 @@ class AutoDJEngine:
                     'format': 'bestaudio/best',
                     'quiet': True,
                     'no_warnings': True,
-                    'socket_timeout': 5
+                    'socket_timeout': 6
                 }
                 with yt_dlp.YoutubeDL(ydl_opts_sc) as ydl:
                     info = ydl.extract_info(sc_query, download=False)
@@ -399,7 +405,6 @@ class AutoDJEngine:
         _STREAM_CACHE[query] = (entry, now)
 
         audio_url = entry.get('url')
-
         title = f"[{item.get('category', 'Hit')}] {entry.get('title', item['title'])}"
         original_url = entry.get("webpage_url", "")
 
@@ -408,7 +413,7 @@ class AutoDJEngine:
             print(f"[AutoDJ] Duplicate detected post-extraction, skipping: {title}")
             return None
 
-        # Filter out 30s snippets (<45s); allow long mixes and DJ remixes
+        # Filter out short snippets (<45s)
         raw_dur = entry.get("duration", 0)
         if raw_dur and raw_dur < 45:
             print(f"[AutoDJ] Invalid short snippet duration ({raw_dur}s), skipping: {title}")
@@ -418,7 +423,7 @@ class AutoDJEngine:
         capped_dur = min(raw_dur, 360) if raw_dur else 360
 
         track = {
-            "id": f"autodj_{int(time.time() * 1000)}",
+            "id": f"autodj_{int(time.time() * 1000)}_{random.randint(100, 999)}",
             "type": "youtube",
             "title": title,
             "duration": capped_dur,
@@ -429,54 +434,77 @@ class AutoDJEngine:
             "original_url": original_url,
             "http_headers": entry.get("http_headers", {}),
             "added_at": time.strftime("%H:%M:%S"),
-            "resolved_at": time.time()
+            "resolved_at": time.time(),
+            "category": item.get("category", "Hit")
         }
+        return track
 
-        with self.station_engine.lock:
-            self.station_engine.playlist.append(track)
-        print(f"[AutoDJ] Queued rotation song: {track['title']} (Capped at {capped_dur}s)")
+    def queue_single_chart_item(self, item: Dict[str, str]) -> Optional[Dict[str, Any]]:
+        """Resolve and immediately append single track to playlist."""
+        track = self.resolve_single_chart_item(item)
+        if track:
+            with self.station_engine.lock:
+                self.station_engine.playlist.append(track)
+            print(f"[AutoDJ] Queued rotation song: {track['title']} (Capped at {track['duration']}s)")
         return track
 
     def load_preset_chart(self, chart_type: str = "mixed", count: int = 5) -> List[Dict[str, Any]]:
-        """Loads a selection of unplayed songs concurrently from the chosen chart."""
-        if chart_type == "sinhala":
+        """Loads a selection of unplayed songs concurrently preserving exact sequence."""
+        if chart_type == "mixed":
+            candidates = []
+            for _ in range(count):
+                item = self.get_next_unplayed_catalog_item()
+                if not item:
+                    with self.station_engine.lock:
+                        self.station_engine.played_history.clear()
+                    item = self.get_next_unplayed_catalog_item()
+                if item:
+                    candidates.append(item)
+        elif chart_type == "sinhala":
             catalog = [dict(x, category="Sinhala") for x in CHART_CATALOGS["sinhala_regular"]]
+            random.shuffle(catalog)
+            candidates = [c for c in catalog if not self.station_engine.is_duplicate(c["title"])][:count]
         elif chart_type == "remix":
             catalog = [dict(x, category="Sinhala Remix") for x in CHART_CATALOGS["sinhala_remix"]]
+            random.shuffle(catalog)
+            candidates = [c for c in catalog if not self.station_engine.is_duplicate(c["title"])][:count]
         elif chart_type == "hindi":
             catalog = [dict(x, category="Hindi") for x in CHART_CATALOGS["hindi"]]
+            random.shuffle(catalog)
+            candidates = [c for c in catalog if not self.station_engine.is_duplicate(c["title"])][:count]
         elif chart_type == "english":
             catalog = [dict(x, category="English") for x in CHART_CATALOGS["english"]]
+            random.shuffle(catalog)
+            candidates = [c for c in catalog if not self.station_engine.is_duplicate(c["title"])][:count]
         else:
-            catalog = get_mixed_chart()
+            candidates = []
 
-        # Randomly shuffle candidates
-        random.shuffle(catalog)
+        if not candidates:
+            return []
 
-        candidates = []
-        for item in catalog:
-            if len(candidates) >= count:
-                break
-            if not self.station_engine.is_duplicate(item.get("title", "")):
-                candidates.append(item)
+        resolved_tracks = [None] * len(candidates)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as ex:
+            futs = {ex.submit(self.resolve_single_chart_item, it): i for i, it in enumerate(candidates)}
+            try:
+                for f in concurrent.futures.as_completed(futs, timeout=18):
+                    idx = futs[f]
+                    try:
+                        resolved_tracks[idx] = f.result()
+                    except Exception as e:
+                        print(f"[AutoDJ] Preset chart extract err {idx}: {e}")
+            except TimeoutError:
+                pass
 
         added = []
-        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as ex:
-            futs = [ex.submit(self.queue_single_chart_item, it) for it in candidates]
-            try:
-                for f in concurrent.futures.as_completed(futs, timeout=14):
-                    try:
-                        res = f.result()
-                        if res:
-                            added.append(res)
-                    except Exception as e:
-                        print(f"[AutoDJ] Chart parallel load err: {e}")
-            except TimeoutError:
-                print(f"[AutoDJ] Parallel chart preload hit 14s timeout; using {len(added)} loaded tracks.")
+        with self.station_engine.lock:
+            for track in resolved_tracks:
+                if track:
+                    self.station_engine.playlist.append(track)
+                    added.append(track)
         return added
 
     def _autodj_loop(self):
-        print("[AutoDJ] Auto-DJ 24/7 Engine Loop active (Ultra-Fast Parallel Preload Mode).")
+        print("[AutoDJ] Auto-DJ 24/7 Engine Loop active (Strict Ordered Rotation Mode).")
         # Allow server to bind port
         time.sleep(1.5)
 
@@ -485,10 +513,21 @@ class AutoDJEngine:
         while self.is_running:
             try:
                 if self.enabled:
+                    # 1. Instant bootstrap if station is completely silent and queue is empty
+                    if len(self.station_engine.playlist) == 0 and not self.station_engine.deck_a.is_active and not self.station_engine.deck_b.is_active:
+                        first_item = self.get_next_unplayed_catalog_item()
+                        if first_item:
+                            first_track = self.resolve_single_chart_item(first_item)
+                            if first_track:
+                                with self.station_engine.lock:
+                                    self.station_engine.playlist.append(first_track)
+                                print(f"[AutoDJ] Fast bootstrap track: {first_track['title']} ({first_track['duration']}s)")
+
                     needed = 10 - len(self.station_engine.playlist)
                     if needed > 0 and self.is_running and self.enabled:
+                        batch_size = min(needed, 5)
                         items_to_queue = []
-                        for _ in range(needed):
+                        for _ in range(batch_size):
                             item = self.get_next_unplayed_catalog_item()
                             if not item:
                                 # Reset history to allow fresh continuous rotation
@@ -499,13 +538,25 @@ class AutoDJEngine:
                                 items_to_queue.append(item)
 
                         if items_to_queue:
-                            # Concurrently extract and queue all needed tracks in parallel
-                            futures = [executor.submit(self.queue_single_chart_item, it) for it in items_to_queue]
-                            for f in concurrent.futures.as_completed(futures, timeout=25):
-                                try:
-                                    f.result()
-                                except Exception as e:
-                                    print(f"[AutoDJ] Parallel extract error: {e}")
+                            # Map each future to its original sequence index so order is strictly maintained
+                            future_to_idx = {executor.submit(self.resolve_single_chart_item, it): idx for idx, it in enumerate(items_to_queue)}
+                            resolved_tracks = [None] * len(items_to_queue)
+                            try:
+                                for f in concurrent.futures.as_completed(future_to_idx, timeout=35):
+                                    idx = future_to_idx[f]
+                                    try:
+                                        resolved_tracks[idx] = f.result()
+                                    except Exception as e:
+                                        print(f"[AutoDJ] Parallel extract error for item {idx}: {e}")
+                            except TimeoutError:
+                                print(f"[AutoDJ] Parallel preload timeout reached; proceeding with resolved tracks.")
+
+                            # Append into playlist IN STRICT ORDER of the rotation sequence
+                            with self.station_engine.lock:
+                                for idx, track in enumerate(resolved_tracks):
+                                    if track:
+                                        self.station_engine.playlist.append(track)
+                                        print(f"[AutoDJ] Added in rotation order [{len(self.station_engine.playlist)}/10]: {track['title']} ({track['duration']}s)")
             except Exception as e:
                 print(f"[AutoDJ] Loop error: {e}")
 
