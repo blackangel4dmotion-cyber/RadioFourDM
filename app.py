@@ -1,5 +1,6 @@
 import os
 import time
+import threading
 os.environ["NO_PROXY"] = "localhost,127.0.0.1," + os.environ.get("NO_PROXY", "")
 import asyncio
 from contextlib import asynccontextmanager
@@ -162,6 +163,8 @@ async def get_station_status():
     status = station_engine.get_status()
     status["scheduler_enabled"] = time_scheduler.is_enabled()
     status["news_scheduler_enabled"] = time_scheduler.is_news_enabled()
+    status["cricket_scheduler_enabled"] = time_scheduler.is_cricket_enabled()
+    status["cricket_lang"] = time_scheduler.get_cricket_lang()
     status["autodj_enabled"] = auto_dj.is_enabled()
     status["config"] = load_config()
     return status
@@ -440,10 +443,82 @@ async def toggle_news_scheduler(req: NewsToggleRequest):
     time_scheduler.set_news_enabled(req.enabled)
     return {"status": "success", "news_scheduler_enabled": req.enabled}
 
+class CricketBroadcastRequest(BaseModel):
+    lang: str = "si" # "si" (Sinhala) or "en" (English)
+
+class CricketSchedulerRequest(BaseModel):
+    enabled: bool
+
+class CricketLangRequest(BaseModel):
+    lang: str
+
+@app.get("/api/cricket/latest")
+async def get_latest_cricket(lang: str = "si"):
+    """Fetch latest Cricbuzz live cricket match data in Sinhala or English."""
+    from cricket_engine import get_cricket_highlights_text
+    cricket = await asyncio.to_thread(get_cricket_highlights_text, lang)
+    return {"status": "success", "cricket": cricket}
+
+@app.post("/api/cricket/toggle")
+async def toggle_cricket_scheduler(req: CricketSchedulerRequest):
+    """Enable or disable the 20-minute Cricbuzz live match broadcast scheduler."""
+    time_scheduler.set_cricket_enabled(req.enabled)
+    return {"status": "success", "cricket_scheduler_enabled": req.enabled}
+
+@app.post("/api/cricket/language")
+async def set_cricket_scheduler_language(req: CricketLangRequest):
+    """Set the commentary language (si / en) for 20-minute Cricbuzz broadcasts."""
+    time_scheduler.set_cricket_lang(req.lang)
+    return {"status": "success", "cricket_lang": req.lang}
+
+@app.post("/api/cricket/broadcast")
+async def broadcast_cricket_highlights(req: CricketBroadcastRequest):
+    """
+    Broadcasts Live Cricket Highlights with 20% ducking over music in chosen language (si / en).
+    Condition: Broadcasts ONLY if an active live match is currently running on Cricbuzz.
+    """
+    from cricket_engine import build_cricket_broadcast_audio, get_cricket_highlights_text
+    meta = await asyncio.to_thread(get_cricket_highlights_text, req.lang)
+    if not meta.get("has_live"):
+        return {
+            "status": "skipped",
+            "message": "Cricbuzz හි මේ මොහොතේ සජීවී තරග නොමැත (No active live matches currently in progress). සජීවී තරගයක් ආරම්භ වූ වහාම විකාශය කෙරේ.",
+            "has_live": False
+        }
+
+    def _worker():
+        try:
+            audio_path = build_cricket_broadcast_audio(req.lang, preloaded_data=meta)
+            if audio_path:
+                title = f"{meta.get('headline', '🏏 Cricbuzz Cricket Highlights')}"
+                station_engine.inject_priority_audio(audio_path, title=title, audio_type="ad", play_immediately=True)
+        except Exception as e:
+            print(f"[Cricket Broadcast Error] {e}")
+
+    threading.Thread(target=_worker, daemon=True).start()
+    return {
+        "status": "success", 
+        "has_live": True,
+        "message": f"Broadcasting Cricbuzz live cricket highlights ({req.lang.upper()}) on radio with 20% ducking"
+    }
+
 @app.post("/api/control/skip")
 async def skip_track():
     station_engine.skip()
     return {"status": "success", "message": "Crossfading into next track..."}
+
+class VoiceGainRequest(BaseModel):
+    gain: float
+
+@app.post("/api/control/voice-gain")
+async def set_station_voice_gain(req: VoiceGainRequest):
+    """Sets master gain multiplier for all AI speech/voiceovers (e.g. 1.35 = 135%)."""
+    station_engine.set_voice_gain(req.gain)
+    return {
+        "status": "success",
+        "voice_gain": float(round(station_engine.master_voice_gain, 2)),
+        "voice_gain_pct": int(round(station_engine.master_voice_gain * 100))
+    }
 
 class OnAirRequest(BaseModel):
     on_air: Optional[bool] = None
@@ -484,6 +559,26 @@ PROMO_SCRIPTS = {
     "promo_next_song": {
         "text": "ඔන්න එහෙනම් ඊළඟට Radio 4DM අපි සූදානම් වන්නේ ඔබ වඩාත්ම ආදරය කරන තවත් ලස්සනම ගීතයක් ඔබට තිළිණ කරන්න. රසවිඳින්න!",
         "title": "RJ Drop: මීළඟ ගීතය හඳුන්වාදීම"
+    },
+    "promo_birthday": {
+        "text": "අද දින උපන්දිනය සමරන අපගේ ආදරණීය ශ්‍රාවක යහළු යෙහෙළියන්ට Radio 4DM පවුලේ සැමගෙන් සුබම සුබ උපන්දිනයක් වේවා කියා ආදරයෙන් ප්‍රාර්ථනා කරනවා!",
+        "title": "RJ Drop: උපන්දින සුබ පැතුම්"
+    },
+    "promo_comedy": {
+        "text": "ආයුබෝවන් යාලුවනේ! වැඩ රාජකාරි කරලා ඔළුවත් රිදෙනවා නේද? කිසි දේකට හිත කරදර කරගන්න එපා, Radio 4DM එක දාලා සින්දුවක් අහලා full chill එකක් දාන්න!",
+        "title": "RJ Drop: විනෝදජනක කතාබහ"
+    },
+    "promo_dedication": {
+        "text": "අප සමඟින් රැඳී සිටින ආදරණීය ශ්‍රාවක ඔබ වෙනුවෙන්ම Radio 4DM වෙතින් පිරිනමන විශේෂ ගීත තිළිණයයි මේ. දිගටම රැඳී සිටින්න අප සමඟින්!",
+        "title": "RJ Drop: විශේෂ ගීත තිළිණය"
+    },
+    "promo_radio_future": {
+        "text": "Listen to the best hits, nonstop music on Radio Four D M - The Future of Digital Sound!",
+        "title": "RJ Drop: Future Sound Radio ID"
+    },
+    "promo_traffic": {
+        "text": "ට්‍රැෆික් එකේ හිරවෙලාද ඉන්නේ? එහෙනම් හෝන් ගහලා වැඩක් නෑ, Radio 4DM volume එක වැඩි කරලා බීට් එකට නටන්න!",
+        "title": "RJ Drop: ට්‍රැෆික් විනෝදය"
     }
 }
 

@@ -1,11 +1,59 @@
+import sys
 import time
 import random
 import threading
+import concurrent.futures
 import yt_dlp
 from typing import List, Dict, Any, Optional
 
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+
+# In-memory stream cache for instant repeat-less re-queries (2 hours TTL)
+_STREAM_CACHE: Dict[str, Any] = {}
+
+def is_unwanted_unofficial_cover(title: str, uploader: str = "") -> bool:
+    """
+    Detects and filters out amateur / unofficial cover songs, reactions, and karaoke.
+    Prioritizes official master recordings, official music videos, Coke studio sessions, and official remixes.
+    """
+    t = (title or "").lower()
+    u = (uploader or "").lower()
+
+    # Reject obvious amateur cover patterns
+    bad_patterns = [
+        "guitar cover", "piano cover", "drum cover", "acoustic cover",
+        "karaoke", "instrumental cover", "reaction", "reacting", "vocal cover",
+        "singing cover", "bedroom cover", "fan cover", "amateur cover",
+        "female version cover", "male version cover", "unplugged cover",
+        "bass cover", "ukulele cover", "dance cover", "tutorial",
+        "how to play", "lyrics only", "chords", "shorts", "shorts cover"
+    ]
+    for p in bad_patterns:
+        if p in t:
+            return True
+
+    # If the word 'cover' is present:
+    if "cover" in t:
+        # Check if it is an authentic recognized official production
+        is_official = any(w in t for w in [
+            "official cover", "official music video", "official video", "coke red", "coke studio",
+            "derana", "rootunes", "torana", "maathra", "live in concert", "coke"
+        ])
+        is_official_channel = any(w in u for w in [
+            "vevo", "official", "records", "music", "studio", "t-series", "sony", "saregama", "zeemusic", "coke studio"
+        ])
+        if not is_official and not is_official_channel:
+            return True
+
+    return False
+
 CHART_CATALOGS = {
-    "sinhala": [
+    "sinhala_regular": [
         {"title": "Manike Mage Hithe (මැණිකේ මගේ හිතේ)", "artist": "Yohani & Satheeshan", "query": "ytsearch1:Manike Mage Hithe Yohani Chamath Sangeeth"},
         {"title": "Haadu (හාදු)", "artist": "Kanchana Anuradhi", "query": "ytsearch1:Haadu Kanchana Anuradhi Official"},
         {"title": "Naadagam Geethaya (නාඩගම් ගීතය)", "artist": "Dinesh Gamage & Sanuka", "query": "ytsearch1:Naadagam Geethaya Dinesh Gamage Sanuka"},
@@ -50,8 +98,6 @@ CHART_CATALOGS = {
         {"title": "Rusiri (රුසිරී)", "artist": "Centigradz", "query": "ytsearch1:Rusiri Centigradz Official Video"},
         {"title": "Kandulu Bindak (කඳුළු බිඳක්)", "artist": "Rookantha Gunathilake", "query": "ytsearch1:Kandulu Bindak Rookantha Gunathilake"},
         {"title": "Bambara Pahasa (බඹර පහස)", "artist": "Rookantha Gunathilake", "query": "ytsearch1:Bambara Pahasa Rookantha Gunathilake"},
-        {"title": "Ananthayata Yanawamai (DJ Remix)", "artist": "Kasun Kalhara DJ Remix", "query": "ytsearch1:Ananthayata Yanawamai DJ Remix"},
-        {"title": "Saragaye (Club Remix)", "artist": "Sanuka Wickramasinghe Remix", "query": "ytsearch1:Saragaye Remix Sanuka"},
         {"title": "Sanda Tharakawa (සඳ තාරකාව)", "artist": "Bathiya and Santhush", "query": "ytsearch1:Sanda Tharakawa Bathiya and Santhush"},
         {"title": "Yanna Rata Wate (යන්න රට වටේ)", "artist": "Daddy", "query": "ytsearch1:Yanna Rata Wate Daddy Band"},
         {"title": "Massina (මස්සිනා)", "artist": "Daddy Band", "query": "ytsearch1:Massina Daddy Band Official"},
@@ -60,6 +106,24 @@ CHART_CATALOGS = {
         {"title": "Sithuwili (සිතිවිලි)", "artist": "Kasun Kalhara", "query": "ytsearch1:Sithuwili Kasun Kalhara"},
         {"title": "Hada Wela (හඬ වෙලා)", "artist": "Bathiya and Santhush", "query": "ytsearch1:Hada Wela Bathiya and Santhush"},
         {"title": "Kandula (කඳුල)", "artist": "Centigradz", "query": "ytsearch1:Kandula Centigradz"}
+    ],
+    "sinhala_remix": [
+        {"title": "Ananthayata Yanawamai (DJ Remix)", "artist": "Kasun Kalhara DJ Remix", "query": "ytsearch1:Ananthayata Yanawamai DJ Remix"},
+        {"title": "Saragaye (Club Remix)", "artist": "Sanuka Wickramasinghe Remix", "query": "ytsearch1:Saragaye Remix Sanuka"},
+        {"title": "Manike Mage Hithe (DJ Party Remix)", "artist": "Yohani DJ Remix", "query": "ytsearch1:Manike Mage Hithe DJ Remix Chamath"},
+        {"title": "Naadagam Geethaya (Club Remix)", "artist": "Dinesh Gamage Remix", "query": "ytsearch1:Naadagam Geethaya Remix Dinesh Gamage"},
+        {"title": "Kuweni (Club Remix)", "artist": "Ridma Weerawardena Remix", "query": "ytsearch1:Kuweni Remix Charitha Attalage"},
+        {"title": "Ra Tharakawo (Nonstop DJ Remix)", "artist": "Bathiya and Santhush Remix", "query": "ytsearch1:Ra Tharakawo DJ Remix Bathiya"},
+        {"title": "Chanchala (Acoustic / EDM Remix)", "artist": "Dinesh Gamage Remix", "query": "ytsearch1:Chanchala Remix Dinesh Gamage"},
+        {"title": "Hadakari Naari (Club Remix)", "artist": "Dinesh Gamage Remix", "query": "ytsearch1:Hadakari Naari DJ Remix"},
+        {"title": "Rosa Pethi (Dance Remix)", "artist": "Sohan Weerasinghe Remix", "query": "ytsearch1:Rosa Pethi DJ Remix Sohan"},
+        {"title": "Nelum Vile (Rock Remix)", "artist": "Daddy Remix", "query": "ytsearch1:Nelum Vile Daddy Remix"},
+        {"title": "Rawwath (Club Remix)", "artist": "Yohani Remix", "query": "ytsearch1:Rawwath Remix Yohani"},
+        {"title": "Dilisena Tharuwo (Trap Remix)", "artist": "Costa Remix", "query": "ytsearch1:Dilisena Tharuwo Remix Costa"},
+        {"title": "Kandulu Bindak (Club Mix)", "artist": "Rookantha Gunathilake Remix", "query": "ytsearch1:Kandulu Bindak DJ Remix Rookantha"},
+        {"title": "Massina (DJ Party Remix)", "artist": "Daddy Band Remix", "query": "ytsearch1:Daddy Massina DJ Remix"},
+        {"title": "Bambara Pahasa (Dance Remix)", "artist": "Rookantha Gunathilake Remix", "query": "ytsearch1:Bambara Pahasa DJ Remix Rookantha"},
+        {"title": "Nela Ganna Baha (Remix)", "artist": "Centigradz Remix", "query": "ytsearch1:Nela Ganna Baha Remix Centigradz"}
     ],
     "hindi": [
         {"title": "Kesariya (Brahmāstra)", "artist": "Arijit Singh", "query": "ytsearch1:Kesariya Brahmastra Arijit Singh Ranbir Kapoor"},
@@ -112,33 +176,52 @@ CHART_CATALOGS = {
     ]
 }
 
+# Convenience combined Sinhala catalog
+CHART_CATALOGS["sinhala"] = CHART_CATALOGS["sinhala_regular"] + CHART_CATALOGS["sinhala_remix"]
+
 def get_mixed_chart() -> List[Dict[str, str]]:
     """
-    Builds a randomized mixed chart heavily weighted towards Sinhala hits (70% Sinhala, 15% English, 15% Hindi).
+    Builds a mixed chart strictly adhering to the Radio Four D M 24/7 sequence:
+    10 Sinhala (with at least 2 remixes guaranteed) -> 1 English -> 10 Sinhala (with at least 2 remixes guaranteed) -> 1 Hindi -> repeat.
     """
-    sinhala_items = [dict(x, category="Sinhala") for x in CHART_CATALOGS["sinhala"]]
-    hindi_items = [dict(x, category="Hindi") for x in CHART_CATALOGS["hindi"]]
-    english_items = [dict(x, category="English") for x in CHART_CATALOGS["english"]]
+    reg_pool = [dict(x, category="Sinhala") for x in CHART_CATALOGS["sinhala_regular"]]
+    remix_pool = [dict(x, category="Sinhala Remix") for x in CHART_CATALOGS["sinhala_remix"]]
+    eng_pool = [dict(x, category="English") for x in CHART_CATALOGS["english"]]
+    hin_pool = [dict(x, category="Hindi") for x in CHART_CATALOGS["hindi"]]
 
-    # Randomly shuffle each category list
-    random.shuffle(sinhala_items)
-    random.shuffle(hindi_items)
-    random.shuffle(english_items)
+    random.shuffle(reg_pool)
+    random.shuffle(remix_pool)
+    random.shuffle(eng_pool)
+    random.shuffle(hin_pool)
 
-    # Ratio: 3 to 4 Sinhala songs for every 1 English or Hindi song
     mixed = []
-    s_idx, e_idx, h_idx = 0, 0, 0
-    while s_idx < len(sinhala_items):
-        for _ in range(3):
-            if s_idx < len(sinhala_items):
-                mixed.append(sinhala_items[s_idx])
-                s_idx += 1
-        if e_idx < len(english_items):
-            mixed.append(english_items[e_idx])
-            e_idx += 1
-        if h_idx < len(hindi_items):
-            mixed.append(hindi_items[h_idx])
-            h_idx += 1
+    r_idx, rx_idx, e_idx, h_idx = 0, 0, 0, 0
+
+    # Generate 2 full cycles (44 songs)
+    for _ in range(2):
+        # 1. First 10 Sinhala songs (8 regular + 2 remixes)
+        for i in range(10):
+            if i in (3, 7):
+                mixed.append(dict(remix_pool[rx_idx % len(remix_pool)]))
+                rx_idx += 1
+            else:
+                mixed.append(dict(reg_pool[r_idx % len(reg_pool)]))
+                r_idx += 1
+        # 2. 1 English song
+        mixed.append(dict(eng_pool[e_idx % len(eng_pool)]))
+        e_idx += 1
+
+        # 3. Next 10 Sinhala songs (8 regular + 2 remixes)
+        for i in range(10):
+            if i in (3, 7):
+                mixed.append(dict(remix_pool[rx_idx % len(remix_pool)]))
+                rx_idx += 1
+            else:
+                mixed.append(dict(reg_pool[r_idx % len(reg_pool)]))
+                r_idx += 1
+        # 4. 1 Hindi song
+        mixed.append(dict(hin_pool[h_idx % len(hin_pool)]))
+        h_idx += 1
 
     return mixed
 
@@ -146,6 +229,7 @@ class AutoDJEngine:
     def __init__(self, station_engine):
         self.station_engine = station_engine
         self.enabled = True
+        self.rotation_step = 0 # 0..21 (22-song rotation cycle)
         self.mixed_catalog = get_mixed_chart()
         self.is_fetching = False
         self.is_running = False
@@ -160,7 +244,7 @@ class AutoDJEngine:
             self.is_running = True
             self.worker = threading.Thread(target=self._autodj_loop, daemon=True)
             self.worker.start()
-            print("[AutoDJ] 24/7 Auto-DJ Engine started with Random Shuffle active.")
+            print("[AutoDJ] 24/7 Auto-DJ Engine started with 22-step Rotation Sequence (10 Sinhala [incl. 2 remixes] -> 1 English -> 10 Sinhala [incl. 2 remixes] -> 1 Hindi).")
 
     def stop(self):
         with self.lock:
@@ -177,43 +261,54 @@ class AutoDJEngine:
 
     def get_next_unplayed_catalog_item(self) -> Optional[Dict[str, str]]:
         """
-        Picks a random unplayed song, with 70% preference towards Sinhala tracks.
-        Respects the 1-hour duplicate lockout so no song repeats within 60 minutes.
+        Picks the next song strictly adhering to the 24/7 rotation pattern:
+        - 10 Sinhala songs (guaranteeing at least 2 DJ remixes)
+        - 1 English song
+        - 10 Sinhala songs (guaranteeing at least 2 DJ remixes)
+        - 1 Hindi song
+        Strictly enforces 1-hour duplicate lockout so no song repeats within 60 minutes.
         """
         with self.lock:
-            # 70% preference for Sinhala
-            preferred_category = random.choices(["Sinhala", "English", "Hindi"], weights=[70, 15, 15], k=1)[0]
-            
-            # 1. Try to find unplayed candidates in the preferred category first (not played in past 60m)
-            cat_candidates = [dict(x, category=preferred_category) for x in CHART_CATALOGS.get(preferred_category.lower(), [])]
-            unplayed_cat = [
-                item for item in cat_candidates
-                if not self.station_engine.is_duplicate(item["title"])
-            ]
-            if unplayed_cat:
-                chosen = random.choice(unplayed_cat)
-                print(f"[AutoDJ] Picked {preferred_category} hit ({len(unplayed_cat)} remaining): {chosen['title']}")
-                return chosen
+            step = self.rotation_step
+            # Determine target catalog based on step in 22-song cycle
+            # Steps 3, 7, 14, 18 = Guaranteed Sinhala Remixes
+            # Step 10 = English
+            # Step 21 = Hindi
+            # Remaining 16 steps = Sinhala Regular
+            if step in (3, 7, 14, 18):
+                cat_key = "sinhala_remix"
+                cat_name = "Sinhala Remix"
+            elif step == 10:
+                cat_key = "english"
+                cat_name = "English"
+            elif step == 21:
+                cat_key = "hindi"
+                cat_name = "Hindi"
+            else:
+                cat_key = "sinhala_regular"
+                cat_name = "Sinhala"
 
-            # 2. Fallback: try all categories with 1-hour duplicate check
-            all_items = get_mixed_chart()
-            unplayed = [
-                item for item in all_items
-                if not self.station_engine.is_duplicate(item["title"])
-            ]
+            candidates = [dict(x, category=cat_name) for x in CHART_CATALOGS.get(cat_key, [])]
+            random.shuffle(candidates)
+
+            # Filter candidates not played in the last 60 minutes
+            unplayed = [c for c in candidates if not self.station_engine.is_duplicate(c["title"])]
+
             if unplayed:
-                sinhala_unplayed = [x for x in unplayed if x.get("category") == "Sinhala"]
-                if sinhala_unplayed and random.random() < 0.70:
-                    chosen = random.choice(sinhala_unplayed)
-                else:
-                    chosen = random.choice(unplayed)
-                print(f"[AutoDJ] Picked hit ({len(unplayed)} remaining): {chosen['title']}")
+                chosen = unplayed[0]
+                self.rotation_step = (self.rotation_step + 1) % 22
+                print(f"[AutoDJ] Sequence [{step + 1}/22] -> Picked {cat_name} ({len(unplayed)} unplayed left): {chosen['title']}")
                 return chosen
 
-            # 3. If all catalog songs were played in the last hour, pick from Sinhala catalog
-            print("[AutoDJ] All songs played recently. Picking fresh from Sinhala catalog...")
-            sinhala_pool = [dict(x, category="Sinhala") for x in CHART_CATALOGS["sinhala"]]
-            return random.choice(sinhala_pool)
+            # If all tracks in this category were played within 60m, pick fresh from pool
+            print(f"[AutoDJ] Sequence [{step + 1}/22]: All {cat_name} songs played recently. Selecting fresh track.")
+            if candidates:
+                chosen = candidates[0]
+                self.rotation_step = (self.rotation_step + 1) % 22
+                return chosen
+
+            self.rotation_step = (self.rotation_step + 1) % 22
+            return random.choice([dict(x, category="Sinhala") for x in CHART_CATALOGS["sinhala_regular"]])
 
     def queue_single_chart_item(self, item: Dict[str, str]) -> Optional[Dict[str, Any]]:
         """Resolve YouTube direct stream and add to queue with strict duplicate check."""
@@ -225,39 +320,60 @@ class AutoDJEngine:
             return None
 
         entry = None
+        now = time.time()
+        if query in _STREAM_CACHE and (now - _STREAM_CACHE[query][1]) < 7200:
+            entry = _STREAM_CACHE[query][0]
+
         # 1. Primary: Direct YouTube extraction with Android/iOS/Web client headers
-        try:
-            ydl_opts = {
-                'format': 'bestaudio/best',
-                'quiet': True,
-                'no_warnings': True,
-                'default_search': 'ytsearch',
-                'source_address': '0.0.0.0',
-                'socket_timeout': 6,
-                'extractor_args': {
-                    'youtube': {
-                        'player_client': ['android', 'ios', 'mweb']
+        if not entry or not entry.get('url'):
+            yt_query = query
+            if yt_query.startswith("ytsearch1:"):
+                yt_query = "ytsearch4:" + yt_query[len("ytsearch1:"):]
+            elif not yt_query.startswith("ytsearch") and not yt_query.startswith("http"):
+                yt_query = f"ytsearch4:{yt_query} Official"
+
+            try:
+                ydl_opts = {
+                    'format': 'bestaudio/best',
+                    'quiet': True,
+                    'no_warnings': True,
+                    'default_search': 'ytsearch',
+                    'source_address': '0.0.0.0',
+                    'socket_timeout': 5,
+                    'extractor_args': {
+                        'youtube': {
+                            'player_client': ['android', 'ios', 'mweb']
+                        }
                     }
                 }
-            }
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(query, download=False)
-                if 'entries' in info and len(info['entries']) > 0:
-                    entry = info['entries'][0]
-                elif info and info.get('url'):
-                    entry = info
-        except Exception as yt_err:
-            print(f"[AutoDJ] YouTube attempt: {yt_err}")
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    info = ydl.extract_info(yt_query, download=False)
+                    candidates = info.get('entries') or ([info] if info and info.get('url') else [])
+                    for cand in candidates:
+                        if not cand or not cand.get('url'):
+                            continue
+                        cand_title = cand.get('title', '')
+                        cand_uploader = cand.get('uploader', '')
+                        # Filter out unofficial / amateur cover songs
+                        if is_unwanted_unofficial_cover(cand_title, cand_uploader):
+                            print(f"[AutoDJ] Filtered out unofficial cover: '{cand_title}' ({cand_uploader})")
+                            continue
+                        entry = cand
+                        break
+                    if not entry and candidates:
+                        entry = candidates[0]
+            except Exception as yt_err:
+                print(f"[AutoDJ] YouTube attempt: {yt_err}")
 
         # 2. SoundCloud fallback if YouTube didn't return
         if not entry or not entry.get('url'):
             try:
-                sc_query = f"scsearch3:{item.get('title')}"
+                sc_query = f"scsearch3:{item.get('title')} official"
                 ydl_opts_sc = {
                     'format': 'bestaudio/best',
                     'quiet': True,
                     'no_warnings': True,
-                    'socket_timeout': 6
+                    'socket_timeout': 5
                 }
                 with yt_dlp.YoutubeDL(ydl_opts_sc) as ydl:
                     info = ydl.extract_info(sc_query, download=False)
@@ -265,13 +381,22 @@ class AutoDJEngine:
                     for cand in entries:
                         dur = cand.get('duration', 0)
                         if dur >= 45 and cand.get('url'):
-                            entry = cand
-                            break
+                            if not is_unwanted_unofficial_cover(cand.get('title', ''), cand.get('uploader', '')):
+                                entry = cand
+                                break
             except Exception as sc_err:
                 print(f"[AutoDJ] SoundCloud fallback failed: {sc_err}")
 
         if not entry or not entry.get('url'):
             return None
+
+        # Verify resolved entry title is not an unwanted unofficial cover
+        if is_unwanted_unofficial_cover(entry.get('title', ''), entry.get('uploader', '')):
+            print(f"[AutoDJ] Skipped unofficial cover post-check: {entry.get('title')}")
+            return None
+
+        # Cache valid entry
+        _STREAM_CACHE[query] = (entry, now)
 
         audio_url = entry.get('url')
 
@@ -289,12 +414,15 @@ class AutoDJEngine:
             print(f"[AutoDJ] Invalid short snippet duration ({raw_dur}s), skipping: {title}")
             return None
 
+        # Hard 6-minute cap (360 seconds) strictly enforced
+        capped_dur = min(raw_dur, 360) if raw_dur else 360
+
         track = {
             "id": f"autodj_{int(time.time() * 1000)}",
             "type": "youtube",
             "title": title,
-            "duration": entry.get("duration", 0),
-            "duration_str": time.strftime('%M:%S', time.gmtime(entry.get("duration", 0))),
+            "duration": capped_dur,
+            "duration_str": time.strftime('%M:%S', time.gmtime(capped_dur)),
             "thumbnail": entry.get("thumbnail", ""),
             "uploader": entry.get("uploader", item.get("artist", "Auto-DJ")),
             "stream_url": audio_url,
@@ -306,13 +434,15 @@ class AutoDJEngine:
 
         with self.station_engine.lock:
             self.station_engine.playlist.append(track)
-        print(f"[AutoDJ] Queued random song: {track['title']}")
+        print(f"[AutoDJ] Queued rotation song: {track['title']} (Capped at {capped_dur}s)")
         return track
 
     def load_preset_chart(self, chart_type: str = "mixed", count: int = 5) -> List[Dict[str, Any]]:
-        """Loads a random selection of unplayed songs from the chosen chart."""
+        """Loads a selection of unplayed songs concurrently from the chosen chart."""
         if chart_type == "sinhala":
-            catalog = [dict(x, category="Sinhala") for x in CHART_CATALOGS["sinhala"]]
+            catalog = [dict(x, category="Sinhala") for x in CHART_CATALOGS["sinhala_regular"]]
+        elif chart_type == "remix":
+            catalog = [dict(x, category="Sinhala Remix") for x in CHART_CATALOGS["sinhala_remix"]]
         elif chart_type == "hindi":
             catalog = [dict(x, category="Hindi") for x in CHART_CATALOGS["hindi"]]
         elif chart_type == "english":
@@ -320,51 +450,63 @@ class AutoDJEngine:
         else:
             catalog = get_mixed_chart()
 
-        # Randomly shuffle candidates so every load yields a fresh, random set
+        # Randomly shuffle candidates
         random.shuffle(catalog)
 
-        added = []
+        candidates = []
         for item in catalog:
-            if len(added) >= count:
+            if len(candidates) >= count:
                 break
-            if self.station_engine.is_duplicate(item.get("title", "")):
-                continue
+            if not self.station_engine.is_duplicate(item.get("title", "")):
+                candidates.append(item)
+
+        added = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as ex:
+            futs = [ex.submit(self.queue_single_chart_item, it) for it in candidates]
             try:
-                t = self.queue_single_chart_item(item)
-                if t:
-                    added.append(t)
-            except Exception as e:
-                print(f"[AutoDJ] Error loading {item['title']}: {e}")
+                for f in concurrent.futures.as_completed(futs, timeout=14):
+                    try:
+                        res = f.result()
+                        if res:
+                            added.append(res)
+                    except Exception as e:
+                        print(f"[AutoDJ] Chart parallel load err: {e}")
+            except TimeoutError:
+                print(f"[AutoDJ] Parallel chart preload hit 14s timeout; using {len(added)} loaded tracks.")
         return added
 
     def _autodj_loop(self):
-        print("[AutoDJ] Auto-DJ 24/7 Engine Loop active (Fast Standby Preload Mode).")
-        # Give web server 2 seconds to bind port and pass cloud healthchecks first
-        time.sleep(2.0)
+        print("[AutoDJ] Auto-DJ 24/7 Engine Loop active (Ultra-Fast Parallel Preload Mode).")
+        # Allow server to bind port
+        time.sleep(1.5)
+
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=4, thread_name_prefix="AutoDJWorker")
 
         while self.is_running:
             try:
                 if self.enabled:
-                    # Keep 10-song standby chart fully loaded at all times
-                    while len(self.station_engine.playlist) < 10 and self.is_running and self.enabled:
-                        item = self.get_next_unplayed_catalog_item()
-                        if not item:
-                            # Reset history to allow fresh continuous rotation
-                            with self.station_engine.lock:
-                                self.station_engine.played_history.clear()
+                    needed = 10 - len(self.station_engine.playlist)
+                    if needed > 0 and self.is_running and self.enabled:
+                        items_to_queue = []
+                        for _ in range(needed):
                             item = self.get_next_unplayed_catalog_item()
-                        if item:
-                            try:
-                                t = self.queue_single_chart_item(item)
-                                if not t:
-                                    time.sleep(0.5)
-                            except Exception as e:
-                                print(f"[AutoDJ] Auto-queue error: {e}")
-                                time.sleep(0.5)
-                        else:
-                            break
-                        time.sleep(1.0)
+                            if not item:
+                                # Reset history to allow fresh continuous rotation
+                                with self.station_engine.lock:
+                                    self.station_engine.played_history.clear()
+                                item = self.get_next_unplayed_catalog_item()
+                            if item:
+                                items_to_queue.append(item)
+
+                        if items_to_queue:
+                            # Concurrently extract and queue all needed tracks in parallel
+                            futures = [executor.submit(self.queue_single_chart_item, it) for it in items_to_queue]
+                            for f in concurrent.futures.as_completed(futures, timeout=25):
+                                try:
+                                    f.result()
+                                except Exception as e:
+                                    print(f"[AutoDJ] Parallel extract error: {e}")
             except Exception as e:
                 print(f"[AutoDJ] Loop error: {e}")
 
-            time.sleep(5)
+            time.sleep(2)

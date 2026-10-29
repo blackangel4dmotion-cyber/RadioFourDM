@@ -102,6 +102,7 @@ class Deck:
         self.stop_signal = threading.Event()
         self.has_audio_flowing: bool = False
         self.empty_count: int = 0
+        self.silence_count: int = 0 # Counts consecutive silent 100ms frames (< -46dB)
 
     def _reader_worker(self, proc):
         while not self.stop_signal.is_set():
@@ -133,7 +134,7 @@ class Deck:
     def load_and_play(self, track: Dict[str, Any], initial_volume: float = 0.0, target_volume: float = 1.0, fade_duration_sec: float = 5.0):
         self.stop()
         self.track = track
-        MAX_TRACK_CAP_SEC = 1200.0 # 20 minutes maximum cap
+        MAX_TRACK_CAP_SEC = 360.0 # 6 minutes maximum cap (strictly enforced)
         raw_dur = float(track.get("duration", 0) or 0)
         if raw_dur > MAX_TRACK_CAP_SEC or raw_dur <= 0:
             self.duration_sec = MAX_TRACK_CAP_SEC
@@ -141,6 +142,7 @@ class Deck:
             self.duration_sec = raw_dur
         self.elapsed_sec = 0.0
         self.empty_count = 0
+        self.silence_count = 0
         self.volume = initial_volume
         self.target_volume = target_volume
         
@@ -224,23 +226,47 @@ class Deck:
             self.elapsed_sec += 0.100
             self.empty_count = 0
 
-            # Strict 20-minute track cap: fade out immediately if track exceeds 20 minutes
-            if self.elapsed_sec >= 1200.0:
+            # Strict 6-minute track cap: fade out immediately if track reaches 6 minutes (360 seconds)
+            if self.elapsed_sec >= 360.0:
                 if self.target_volume > 0.0:
-                    print(f"[DJ Deck {self.name}] Reached 20-minute track limit ({self.elapsed_sec:.1f}s). Auto-fading out.")
-                    self.fade_out(duration_sec=3.0)
+                    print(f"[DJ Deck {self.name}] Reached 6-minute track limit ({self.elapsed_sec:.1f}s). Auto-fading out.")
+                    self.fade_out(duration_sec=3.5)
 
             if data and len(data) >= 100:
                 samples = np.frombuffer(data, dtype=np.int16).astype(np.float32)
                 rms = np.sqrt(np.mean(samples ** 2))
                 self.current_rms_db = 20.0 * np.log10(rms / 32768.0 + 1e-6)
+
+                # 1. Soundtrack presence verification (Audible music signal)
+                if self.current_rms_db > -46.0 and rms > 120.0:
+                    self.has_audio_flowing = True
+                    self.silence_count = 0
+                else:
+                    self.silence_count += 1
+
+                # 2. End-of-song trailing silence check:
+                # If track has been playing for at least 6s and 3.0s of continuous silence/dead-air occurs:
+                if self.elapsed_sec >= 6.0 and self.silence_count >= 30:
+                    if self.target_volume > 0.0 and not self.eof_reached:
+                        print(f"[DJ Deck {self.name}] 3.0s trailing silence / dead-air detected (RMS: {self.current_rms_db:.1f} dB). Auto-switching to next track immediately!")
+                        self.eof_reached = True
+                        self.fade_out(duration_sec=1.2)
+
+            # 3. Soundtrack check at start: If 3.0s elapsed with no valid audio sound, auto-skip immediately
+            if self.elapsed_sec >= 3.0 and not self.has_audio_flowing:
+                print(f"[DJ Deck {self.name}] No sound track detected within 3.0s! Auto-skipping to next track.")
+                self.eof_reached = True
+                self.stop()
+
             return data
         except queue.Empty:
             self.current_rms_db = -60.0
             self.empty_count += 1
-            # If EOF reached, or if no audio ever flowed and we've waited 3 seconds (30 cycles of 100ms):
-            if self.eof_reached or (not self.has_audio_flowing and self.empty_count > 30):
-                print(f"[DJ Deck {self.name}] Stream stalled or ended (has_flowed={self.has_audio_flowing}, eof={self.eof_reached}, elapsed={self.elapsed_sec}s). Auto-stopping to advance playlist!")
+            self.silence_count += 1
+            # If EOF reached, or if stream stalls/delivers no audio for 3.0s (30 cycles of 100ms):
+            if self.eof_reached or self.empty_count >= 30 or (self.silence_count >= 30 and self.elapsed_sec >= 3.0):
+                print(f"[DJ Deck {self.name}] Stream silent or stalled for 3.0s (flowed={self.has_audio_flowing}, eof={self.eof_reached}, elapsed={self.elapsed_sec:.1f}s). Auto-advancing to next track!")
+                self.eof_reached = True
                 self.stop()
             return b"\x00" * CHUNK_SIZE
 
@@ -292,6 +318,7 @@ class AudioStationEngine:
         self.current_voice_pcm: Optional[bytes] = None
         self.voice_pos: int = 0
         self.current_voice_info: Optional[Dict[str, Any]] = None
+        self.master_voice_gain: float = 1.35  # User adjustable AI Voice gain (default 135%)
 
         # Inter-Song Quick News Transition (plays between songs before next track begins)
         self.pending_transition_news: Optional[Dict[str, Any]] = None
@@ -325,9 +352,12 @@ class AudioStationEngine:
         """Strip brackets, artists formatting, and non-alphanumeric chars for accurate duplicate matching."""
         if not title:
             return ""
+        is_remix = "remix" in title.lower() or "mix" in title.lower()
         t = re.sub(r'\[.*?\]|\(.*?\)', '', title) # Remove [Sinhala], (Official Video), etc.
         t = re.sub(r'[^a-zA-Z0-9\u0D80-\u0DFF]', '', t).lower()
-        return t[:30] # Match primary 30 chars
+        if is_remix:
+            t += "_remix"
+        return t[:35] # Match primary 35 chars
 
     def is_duplicate(self, title: str, url: str = "") -> bool:
         """Strict check to prevent playing the same song within 1 hour (3600 seconds)."""
@@ -390,7 +420,10 @@ class AudioStationEngine:
         return False
 
     def play_track_now(self, track_id: str) -> bool:
-        """Instantly crossfades into the selected playlist track."""
+        """
+        Immediately inserts/cues selected track into the 2nd (standby) deck,
+        and triggers a smooth DJ crossfade with fade effect.
+        """
         with self.lock:
             target_track = None
             for i, t in enumerate(self.playlist):
@@ -404,13 +437,28 @@ class AudioStationEngine:
             active_deck = self.deck_a if self.current_deck_name == "A" else self.deck_b
             next_deck = self.deck_b if self.current_deck_name == "A" else self.deck_a
             
-            self.played_history.append(self._normalize_title(target_track.get("title", "")))
-            crossfade_sec = 3.5
+            norm_title = self._normalize_title(target_track.get("title", ""))
+            if norm_title:
+                self.played_history[norm_title] = time.time()
+            crossfade_sec = 4.0
+
+            # 1. Immediately insert/load track into 2nd Deck so UI reflects it instantly
+            next_deck.track = target_track
+            raw_dur = float(target_track.get("duration", 0) or 0)
+            next_deck.duration_sec = 360.0 if (raw_dur > 360.0 or raw_dur <= 0) else raw_dur
+            next_deck.elapsed_sec = 0.0
+
+        # 2. Worker initiates smooth fade transition without blocking HTTP response
+        def _crossfade_transition():
+            time.sleep(0.4) # Brief cue beat
             next_deck.load_and_play(target_track, initial_volume=0.0, target_volume=1.0, fade_duration_sec=crossfade_sec)
             active_deck.fade_out(duration_sec=crossfade_sec)
-            self.current_deck_name = next_deck.name
-            print(f"[DJ Mixer] Instant crossfade to target track: {target_track.get('title')}")
-            return True
+            with self.lock:
+                self.current_deck_name = next_deck.name
+            print(f"[DJ Mixer] Inserted to Deck {next_deck.name} -> Smooth DJ Crossfade ({crossfade_sec}s): {target_track.get('title')}")
+
+        threading.Thread(target=_crossfade_transition, daemon=True).start()
+        return True
 
     def clear_playlist(self):
         """Clear the entire upcoming playlist."""
@@ -804,12 +852,13 @@ class AudioStationEngine:
         return track
 
     def inject_priority_audio(self, audio_file_path: str, title: str, audio_type: str = "ad", play_immediately: bool = True):
-        """Inject voiceover for real-time audio ducking (music lowers to 18%, never stops)."""
+        """Inject voiceover for real-time audio ducking (music lowers to 20%, never stops). Voice volume boosted."""
         try:
             conv_cmd = [
                 FFMPEG_EXE,
                 "-i", audio_file_path,
                 "-vn",
+                "-af", "volume=1.35",
                 "-f", "s16le",
                 "-ac", "2",
                 "-ar", "44100",
@@ -842,6 +891,16 @@ class AudioStationEngine:
             print(f"[DJ Mixer] Queued voiceover for ducking: {title} ({len(pcm_bytes)/(44100*4):.1f}s)")
         except Exception as e:
             print(f"[DJ Mixer] Error preparing voiceover: {e}")
+
+    def play_voice_overlay(self, audio_file_path: str, title: str = "Voice Broadcast", duck_vol: float = 0.20, play_immediately: bool = True):
+        """Overlay priority voiceover over active stream with audio ducking."""
+        self.inject_priority_audio(audio_file_path, title=title, audio_type="ad", play_immediately=play_immediately)
+
+    def set_voice_gain(self, gain: float):
+        """Set real-time master gain multiplier for all AI speech/voiceovers (range: 0.3 to 3.0)."""
+        with self.lock:
+            self.master_voice_gain = max(0.3, min(3.0, float(gain)))
+            print(f"[DJ Mixer] Master Voice Gain set to: {self.master_voice_gain:.2f} ({int(round(self.master_voice_gain*100))}%)")
 
     def set_pending_transition_news(self, audio_file_path: str, title: str):
         """
@@ -931,23 +990,27 @@ class AudioStationEngine:
                 "playlist_count": len(self.playlist),
                 "playlist": [{k: v for k, v in t.items() if k not in ("stream_url", "http_headers")} for t in self.playlist[:15]],
                 "voice_active": bool(self.current_voice_info),
+                "voice_gain": float(round(self.master_voice_gain, 2)),
+                "voice_gain_pct": int(round(self.master_voice_gain * 100)),
                 "deck_a": {
                     "active": self.deck_a.is_active,
-                    "volume": round(self.deck_a.volume, 2),
-                    "gain": self.deck_a.user_gain,
-                    "muted": self.deck_a.is_muted,
+                    "volume": float(round(self.deck_a.volume, 2)),
+                    "gain": float(self.deck_a.user_gain),
+                    "muted": bool(self.deck_a.is_muted),
                     "track": self.deck_a.track.get("title") if self.deck_a.track else None,
-                    "duration": self.deck_a.duration_sec,
-                    "elapsed": round(self.deck_a.elapsed_sec, 1)
+                    "duration": float(self.deck_a.duration_sec),
+                    "elapsed": float(round(self.deck_a.elapsed_sec, 1)),
+                    "rms_db": float(round(self.deck_a.current_rms_db, 1))
                 },
                 "deck_b": {
                     "active": self.deck_b.is_active,
-                    "volume": round(self.deck_b.volume, 2),
-                    "gain": self.deck_b.user_gain,
-                    "muted": self.deck_b.is_muted,
+                    "volume": float(round(self.deck_b.volume, 2)),
+                    "gain": float(self.deck_b.user_gain),
+                    "muted": bool(self.deck_b.is_muted),
                     "track": self.deck_b.track.get("title") if self.deck_b.track else None,
-                    "duration": self.deck_b.duration_sec,
-                    "elapsed": round(self.deck_b.elapsed_sec, 1)
+                    "duration": float(self.deck_b.duration_sec),
+                    "elapsed": float(round(self.deck_b.elapsed_sec, 1)),
+                    "rms_db": float(round(self.deck_b.current_rms_db, 1))
                 },
                 "crossfade_pos": self.manual_crossfade_pos
             }
@@ -991,10 +1054,10 @@ class AudioStationEngine:
             
             should_crossfade = False
             if active_deck.is_active and not next_deck.is_active and not self.is_playing_transition_news:
-                if active_deck.eof_reached or active_deck.target_volume == 0.0:
+                if active_deck.eof_reached or active_deck.target_volume == 0.0 or active_deck.silence_count >= 30 or active_deck.empty_count >= 30:
                     should_crossfade = True
-                elif active_deck.elapsed_sec >= (1200.0 - crossfade_sec):
-                    # Hard 20-minute maximum track cap
+                elif active_deck.elapsed_sec >= (360.0 - crossfade_sec):
+                    # Hard 6-minute maximum track cap (seamless equal-power crossfade)
                     should_crossfade = True
                 elif active_deck.duration_sec > 10 and time_left <= crossfade_sec:
                     # Seamless Equal-Power crossfade: starts BEFORE outgoing track decibels drop,
@@ -1100,11 +1163,11 @@ class AudioStationEngine:
                 
                 music_mixed = (arr_a + arr_b) * self.master_duck_vol
                 
-                # Add voiceover if active
+                # Add voiceover if active (scaled by user-controlled AI Voice Volume bar)
                 if voice_chunk:
                     if len(voice_chunk) < CHUNK_SIZE:
                         voice_chunk = voice_chunk.ljust(CHUNK_SIZE, b"\x00")
-                    v_arr = np.frombuffer(voice_chunk, dtype=np.int16).astype(np.float32)
+                    v_arr = np.frombuffer(voice_chunk, dtype=np.int16).astype(np.float32) * self.master_voice_gain
                     output_pcm = music_mixed + v_arr + sfx_combined
                 else:
                     output_pcm = music_mixed + sfx_combined

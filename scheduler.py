@@ -1,3 +1,4 @@
+import sys
 import time
 import os
 import threading
@@ -6,9 +7,17 @@ import asyncio
 import urllib.request
 import json
 import ssl
+
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
 from streamer import station_engine
 from tts_engine import generate_speech_file_sync, get_sinhala_time_text, get_tagline_info, STATION_TAGLINES, CACHE_DIR
 from news_engine import fetch_quick_news, build_news_broadcast_audio
+from cricket_engine import get_cricket_highlights_text, build_cricket_broadcast_audio
 
 WEATHER_CODE_SINHALA = {
     0: "හිරු රැසින් පිරි පැහැදිලි අහසක්",
@@ -83,9 +92,12 @@ class HourlyTimeScheduler:
         self.last_news_id = None
         self.last_polled_news_time = 0
         self.last_tagline_time = time.time()
+        self.cricket_enabled = True
+        self.cricket_lang = "si"
+        self.last_cricket_broadcast_time = time.time()
         self.lock = threading.Lock()
         
-        # Threads for hourly time, 10-minute quick news poller, and automatic Radio ID drops
+        # Threads for hourly time, 10-minute quick news poller, automatic Radio ID drops, and 20-min Cricbuzz live updates
         self.worker_thread = threading.Thread(target=self._run_time_loop, daemon=True)
         self.worker_thread.start()
         
@@ -94,6 +106,9 @@ class HourlyTimeScheduler:
 
         self.tagline_thread = threading.Thread(target=self._run_tagline_loop, daemon=True)
         self.tagline_thread.start()
+
+        self.cricket_thread = threading.Thread(target=self._run_cricket_loop, daemon=True)
+        self.cricket_thread.start()
 
     def set_enabled(self, state: bool):
         with self.lock:
@@ -112,6 +127,25 @@ class HourlyTimeScheduler:
     def is_news_enabled(self) -> bool:
         with self.lock:
             return self.news_enabled
+
+    def set_cricket_enabled(self, state: bool):
+        with self.lock:
+            self.cricket_enabled = state
+            print(f"[Scheduler] Auto 20-Min Cricbuzz Cricket Broadcast set to: {'ON' if state else 'OFF'}")
+
+    def is_cricket_enabled(self) -> bool:
+        with self.lock:
+            return self.cricket_enabled
+
+    def set_cricket_lang(self, lang: str):
+        with self.lock:
+            if lang in ("si", "en"):
+                self.cricket_lang = lang
+                print(f"[Scheduler] Cricket commentary language set to: {lang.upper()}")
+
+    def get_cricket_lang(self) -> str:
+        with self.lock:
+            return self.cricket_lang
 
     def broadcast_time_sync(self) -> dict:
         """Broadcasts current time in lively Sinhala female RJ voice (Radio Four D M)."""
@@ -308,6 +342,61 @@ class HourlyTimeScheduler:
                         self.broadcast_tagline_sync()
             except Exception as e:
                 print(f"[Radio ID Engine] Loop error: {e}")
+
+            time.sleep(15)
+
+    def broadcast_cricket_sync(self, lang: str = None) -> dict:
+        """
+        Broadcasts live cricket updates from Cricbuzz with 20% music ducking.
+        Condition: Broadcasts ONLY if an active live match is currently in progress.
+        """
+        chosen_lang = lang or self.cricket_lang
+        data = get_cricket_highlights_text(chosen_lang)
+        if not data.get("has_live"):
+            print("[Cricket Engine] Cricbuzz reports no active live matches right now. Skipping broadcast.")
+            return {"status": "skipped", "reason": "No live match in progress", "has_live": False}
+
+        audio_file = build_cricket_broadcast_audio(chosen_lang, preloaded_data=data)
+        if not audio_file:
+            return {"status": "skipped", "reason": "Could not synthesize audio", "has_live": False}
+
+        title = data.get("headline", "Cricbuzz සජීවී ක්‍රිකට් විකාශය")
+        station_engine.inject_priority_audio(
+            audio_file_path=audio_file,
+            title=title,
+            audio_type="ad",
+            play_immediately=True
+        )
+        self.last_cricket_broadcast_time = time.time()
+        print(f"[Cricket Engine] Broadcasted Cricbuzz live update ({chosen_lang.upper()}): {data.get('top_match', {}).get('title')}")
+        return {
+            "status": "success",
+            "has_live": True,
+            "headline": data.get("headline"),
+            "summary": data.get("summary"),
+            "time": data.get("time")
+        }
+
+    async def broadcast_cricket_async(self, lang: str = None) -> dict:
+        return await asyncio.to_thread(self.broadcast_cricket_sync, lang)
+
+    def _run_cricket_loop(self):
+        """
+        Periodically checks Cricbuzz every 20 minutes (1200 seconds).
+        Broadcasts live match scorecards ONLY if there are active live matches currently in progress.
+        """
+        time.sleep(45) # Initial station warmup
+        while True:
+            try:
+                if self.is_cricket_enabled():
+                    elapsed = time.time() - self.last_cricket_broadcast_time
+                    if elapsed >= 1200: # 20 minutes
+                        has_active_music = (station_engine.deck_a.is_active or station_engine.deck_b.is_active)
+                        has_pending_voice = bool(station_engine.current_voice_pcm) or bool(station_engine.voice_queue)
+                        if has_active_music and not has_pending_voice and station_engine.is_on_air:
+                            self.broadcast_cricket_sync(self.cricket_lang)
+            except Exception as e:
+                print(f"[Cricket Engine] Loop error: {e}")
 
             time.sleep(15)
 
