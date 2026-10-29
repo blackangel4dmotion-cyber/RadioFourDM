@@ -108,23 +108,96 @@
 
                     <div class="dual-deck-container">
                         <!-- DECK A -->
-                        <div class="deck-channel deck-channel-a">
+                        <div class="deck-channel deck-channel-a" id="deckChannelA">
                             <div class="channel-header">
-                                <span class="channel-tag">DECK A</span>
+                                <span class="channel-tag"><i class="fa-solid fa-compact-disc"></i> DECK A</span>
+                                <div class="deck-bpm-sync">
+                                    <span class="bpm-text">128.0 <small>BPM</small></span>
+                                    <span class="badge-sync active">SYNC</span>
+                                </div>
+                                <span id="deckAOnAirPill" class="deck-on-air-pill">ON AIR</span>
                                 <button id="deckAMuteBtn" class="btn-deck-mute" onclick="toggleMute('A')" title="Mute Deck A">MUTE</button>
                             </div>
+
+                            <!-- Live Turntable Vinyl & VU Meter Row -->
+                            <div class="turntable-visual-row">
+                                <div class="turntable-box" id="turntableA">
+                                    <div class="vinyl-platter" id="vinylPlatterA">
+                                        <div class="vinyl-groove"></div>
+                                        <div class="vinyl-groove groove-inner"></div>
+                                        <div class="vinyl-center-label label-deck-a">
+                                            <span class="label-text">DECK A</span>
+                                            <i class="fa-solid fa-radio"></i>
+                                        </div>
+                                    </div>
+                                    <div class="turntable-tonearm" id="tonearmA"></div>
+                                </div>
+
+                                <div class="deck-vu-meter-wrap" title="Deck A Output Meter">
+                                    <div class="vu-meter-bar" id="deckAVuMeter">
+                                        <span class="vu-led led-red"></span>
+                                        <span class="vu-led led-yellow"></span>
+                                        <span class="vu-led led-yellow"></span>
+                                        <span class="vu-led led-green"></span>
+                                        <span class="vu-led led-green"></span>
+                                        <span class="vu-led led-green"></span>
+                                        <span class="vu-led led-green"></span>
+                                    </div>
+                                    <span class="vu-label">VU L</span>
+                                </div>
+                            </div>
+
+                            <!-- DJ Hardware Pro Controls (Hot Cues & Loop) -->
+                            <div class="deck-hardware-bar">
+                                <div class="hot-cue-row">
+                                    <span class="cue-pad" title="Hot Cue 1">CUE 1</span>
+                                    <span class="cue-pad" title="Hot Cue 2">CUE 2</span>
+                                    <span class="cue-pad" title="Hot Cue 3">CUE 3</span>
+                                    <span class="cue-pad loop-pad" title="Auto 4 Beat Loop">LOOP 4</span>
+                                </div>
+                                <div class="pitch-indicator">PITCH: <span>±0.0%</span></div>
+                            </div>
+
                             <div class="channel-info">
                                 <div id="deckATitle" class="channel-track-title">Waiting...</div>
-                                <div id="deckATime" class="channel-time">00:00 / 00:00</div>
+                                <div class="deck-progress-bar-wrap">
+                                    <div class="deck-progress-bar" id="deckAProgressBar"></div>
+                                </div>
+                                <div id="deckATime" class="channel-time">00:00 / 00:00 (Max 06:00)</div>
                             </div>
                             <div class="fader-group">
-                                <label>Gain:</label>
+                                <label><i class="fa-solid fa-volume-high"></i> Gain:</label>
                                 <input type="range" id="deckAGain" min="0" max="1.5" step="0.05" value="1" oninput="setGain('A', this.value)">
                             </div>
                         </div>
 
-                        <!-- MASTER CENTER CROSSFADER -->
+                        <!-- MASTER CENTER CROSSFADER & STEREO LEVEL METERS -->
                         <div class="center-crossfader-block">
+                            <!-- Dual Master Stereo L/R Output Meters -->
+                            <div class="master-stereo-meters" title="Master Output Stereo Meters">
+                                <span class="meter-title">MASTER L / R</span>
+                                <div class="stereo-bars-wrap">
+                                    <div class="vu-meter-bar" id="masterVuLeft">
+                                        <span class="vu-led led-red"></span>
+                                        <span class="vu-led led-yellow"></span>
+                                        <span class="vu-led led-yellow"></span>
+                                        <span class="vu-led led-green"></span>
+                                        <span class="vu-led led-green"></span>
+                                        <span class="vu-led led-green"></span>
+                                        <span class="vu-led led-green"></span>
+                                    </div>
+                                    <div class="vu-meter-bar" id="masterVuRight">
+                                        <span class="vu-led led-red"></span>
+                                        <span class="vu-led led-yellow"></span>
+                                        <span class="vu-led led-yellow"></span>
+                                        <span class="vu-led led-green"></span>
+                                        <span class="vu-led led-green"></span>
+                                        <span class="vu-led led-green"></span>
+                                        <span class="vu-led led-green"></span>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div class="crossfader-slider-wrap">
                                 <div class="fader-labels">
                                     <span>DECK A</span>
@@ -142,61 +215,125 @@
                         </div>
 
                         <!-- DECK B -->
-                        <div class="deck-channel deck-channel-b">
+                        <div class="deck-channel deck-channel-b" id="deckChannelB">
                             <div class="channel-header">
-                                <span class="channel-tag">DECK B</span>
+                                <span class="channel-tag"><i class="fa-solid fa-compact-disc"></i> DECK B</span>
+                                <div class="deck-bpm-sync">
+                                    <span class="bpm-text">126.5 <small>BPM</small></span>
+                                    <span class="badge-sync">SYNC</span>
+                                </div>
+                                <span id="deckBOnAirPill" class="deck-on-air-pill">ON AIR</span>
                                 <button id="deckBMuteBtn" class="btn-deck-mute" onclick="toggleMute('B')" title="Mute Deck B">MUTE</button>
                             </div>
+
+                            <!-- Live Turntable Vinyl & VU Meter Row -->
+                            <div class="turntable-visual-row">
+                                <div class="turntable-box" id="turntableB">
+                                    <div class="vinyl-platter" id="vinylPlatterB">
+                                        <div class="vinyl-groove"></div>
+                                        <div class="vinyl-groove groove-inner"></div>
+                                        <div class="vinyl-center-label label-deck-b">
+                                            <span class="label-text">DECK B</span>
+                                            <i class="fa-solid fa-radio"></i>
+                                        </div>
+                                    </div>
+                                    <div class="turntable-tonearm" id="tonearmB"></div>
+                                </div>
+
+                                <div class="deck-vu-meter-wrap" title="Deck B Output Meter">
+                                    <div class="vu-meter-bar" id="deckBVuMeter">
+                                        <span class="vu-led led-red"></span>
+                                        <span class="vu-led led-yellow"></span>
+                                        <span class="vu-led led-yellow"></span>
+                                        <span class="vu-led led-green"></span>
+                                        <span class="vu-led led-green"></span>
+                                        <span class="vu-led led-green"></span>
+                                        <span class="vu-led led-green"></span>
+                                    </div>
+                                    <span class="vu-label">VU R</span>
+                                </div>
+                            </div>
+
+                            <!-- DJ Hardware Pro Controls (Hot Cues & Loop) -->
+                            <div class="deck-hardware-bar">
+                                <div class="hot-cue-row">
+                                    <span class="cue-pad cue-pad-b" title="Hot Cue 1">CUE 1</span>
+                                    <span class="cue-pad cue-pad-b" title="Hot Cue 2">CUE 2</span>
+                                    <span class="cue-pad cue-pad-b" title="Hot Cue 3">CUE 3</span>
+                                    <span class="cue-pad loop-pad-b" title="Auto 4 Beat Loop">LOOP 4</span>
+                                </div>
+                                <div class="pitch-indicator">PITCH: <span>±0.0%</span></div>
+                            </div>
+
                             <div class="channel-info">
                                 <div id="deckBTitle" class="channel-track-title">Waiting...</div>
-                                <div id="deckBTime" class="channel-time">00:00 / 00:00</div>
+                                <div class="deck-progress-bar-wrap">
+                                    <div class="deck-progress-bar" id="deckBProgressBar"></div>
+                                </div>
+                                <div id="deckBTime" class="channel-time">00:00 / 00:00 (Max 06:00)</div>
                             </div>
                             <div class="fader-group">
-                                <label>Gain:</label>
+                                <label><i class="fa-solid fa-volume-high"></i> Gain:</label>
                                 <input type="range" id="deckBGain" min="0" max="1.5" step="0.05" value="1" oninput="setGain('B', this.value)">
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- 3. DJ Sound Effects & Launchpad Pads (One-Shot SFX) -->
-                <div class="card sfx-card">
+                <!-- 3. Live Cricket Highlights & Scores Studio (Bilingual Sinhala / English via Cricbuzz) -->
+                <div class="card cricket-card">
                     <div class="card-header">
-                        <h3><i class="fa-solid fa-wand-magic-sparkles" style="color: #ec4899;"></i> DJ Sound Effects & Launchpad Pads</h3>
-                        <span class="sfx-subtext">Instant Broadcast Overlay</span>
+                        <div class="card-header-left">
+                            <h3><i class="fa-solid fa-baseball-bat-ball" style="color: #10b981;"></i> 🏏 Cricbuzz Live Cricket Desk</h3>
+                            <span class="badge-live-cricket" id="cricketLiveBadge"><i class="fa-solid fa-circle fa-beat" style="color: #10b981; font-size: 0.65rem;"></i> CRICBUZZ LIVE</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                            <!-- 20-Minute Auto Update Switch -->
+                            <div style="display: flex; align-items: center; gap: 6px; background: rgba(16, 185, 129, 0.12); padding: 4px 10px; border-radius: 20px; border: 1px solid rgba(16, 185, 129, 0.3);">
+                                <label class="switch" title="සජීවී තරග පැවැත්වෙන විට සෑම විනාඩි 20කට වරක්ම ස්වයංක්‍රීයව විකාශය කරන්න">
+                                    <input type="checkbox" id="cricketSchedulerToggle" checked onchange="toggleCricketScheduler(this.checked)">
+                                    <span class="slider round"></span>
+                                </label>
+                                <span style="font-size: 0.72rem; color: #34d399; font-weight: 700; text-transform: uppercase;">20m Auto Update</span>
+                            </div>
+                            <!-- Language Toggle Switch (Sinhala / English) -->
+                            <div class="cricket-lang-toggle-wrap">
+                                <span class="lang-label-txt">Language:</span>
+                                <div class="lang-switch-pills">
+                                    <button type="button" class="btn-lang-pill active" id="cricketLangSi" onclick="setCricketLanguage('si')" title="Switch to Sinhala Commentary">
+                                        🇱🇰 සිංහල
+                                    </button>
+                                    <button type="button" class="btn-lang-pill" id="cricketLangEn" onclick="setCricketLanguage('en')" title="Switch to English Commentary">
+                                        🇬🇧 English
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="sfx-pad-grid">
-                        <button class="sfx-pad pad-airhorn" onclick="triggerSfx('airhorn')" title="Air Horn Blast">
-                            <i class="fa-solid fa-bullhorn"></i>
-                            <span class="pad-title">AIR HORN</span>
-                            <span class="pad-desc">Classic DJ Horn</span>
+
+                    <div class="cricket-display-box">
+                        <div class="cricket-headline-row">
+                            <span class="cricket-tag" id="cricketLiveStatusTag"><i class="fa-solid fa-bolt"></i> CRICBUZZ LIVE SCORE</span>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <a href="https://www.cricbuzz.com/cricket-match/live-scores" target="_blank" rel="noopener" style="font-size: 0.72rem; color: #10b981; text-decoration: none; display: flex; align-items: center; gap: 4px;" title="View on Cricbuzz Live Scores">
+                                    <i class="fa-solid fa-arrow-up-right-from-square"></i> cricbuzz.com
+                                </a>
+                                <span id="cricketUpdateTime" class="cricket-time">Updated: Just now</span>
+                            </div>
+                        </div>
+                        <h4 id="cricketHeadline">Cricbuzz Live Cricket Highlights...</h4>
+                        <p id="cricketSummary" class="cricket-summary">Fetching latest live match scores from Cricbuzz...</p>
+                    </div>
+
+                    <div class="cricket-action-row">
+                        <button type="button" id="broadcastCricketBtn" class="btn btn-cricket-broadcast" onclick="broadcastCricketNow()">
+                            <i class="fa-solid fa-microphone-lines"></i> Broadcast Cricbuzz Update On-Air (20% Ducking)
                         </button>
-                        <button class="sfx-pad pad-scratch" onclick="triggerSfx('scratch')" title="Vinyl Scratch">
-                            <i class="fa-solid fa-record-vinyl"></i>
-                            <span class="pad-title">SCRATCH</span>
-                            <span class="pad-desc">Vinyl Rewind</span>
-                        </button>
-                        <button class="sfx-pad pad-laser" onclick="triggerSfx('laser')" title="Laser Zap">
-                            <i class="fa-solid fa-bolt-lightning"></i>
-                            <span class="pad-title">LASER DROP</span>
-                            <span class="pad-desc">Laser Sweep</span>
-                        </button>
-                        <button class="sfx-pad pad-bassdrop" onclick="triggerSfx('bassdrop')" title="808 Bass Boom">
-                            <i class="fa-solid fa-explosion"></i>
-                            <span class="pad-title">BASS DROP</span>
-                            <span class="pad-desc">808 Sub Boom</span>
-                        </button>
-                        <button class="sfx-pad pad-applause" onclick="triggerSfx('applause')" title="Crowd Cheers">
-                            <i class="fa-solid fa-hands-clapping"></i>
-                            <span class="pad-title">APPLAUSE</span>
-                            <span class="pad-desc">Crowd Cheers</span>
-                        </button>
-                        <button class="sfx-pad pad-chime" onclick="triggerSfx('chime')" title="Station Chime">
-                            <i class="fa-solid fa-bell"></i>
-                            <span class="pad-title">CHIME</span>
-                            <span class="pad-desc">Station Bells</span>
+                        <button type="button" class="btn btn-sm btn-outline" onclick="refreshCricketHighlights()" title="Refresh latest Cricbuzz scores">
+                            <i class="fa-solid fa-rotate"></i> Refresh
                         </button>
                     </div>
+                    <div id="cricketFeedback" class="fixed-feedback"></div>
                 </div>
 
                 <!-- 4. 24/7 Auto-DJ & Rotation -->
@@ -256,6 +393,23 @@
                                 <i class="fa-solid fa-plug-circle-bolt"></i> Link & Test
                             </button>
                         </div>
+                        
+                        <!-- 1-Click Predefined Key Card -->
+                        <div class="gemini-key-quickfill-card">
+                            <div class="key-quickfill-content">
+                                <span class="key-quickfill-title"><i class="fa-solid fa-sparkles" style="color: #f59e0b;"></i> ඔබගේ Google Key එක (1-Click Paste & Link):</span>
+                                <code class="key-quickfill-code" id="predefinedKeyText">AQ.Ab8RN6KuK5zmnKB6t1XaiGOhxDEv2lYH225u7peYOOphrubhKw</code>
+                            </div>
+                            <div class="key-quickfill-actions">
+                                <button type="button" class="btn btn-sm btn-quickfill-paste" onclick="pasteAndLinkPredefinedKey()" title="Click to fill key and link Gemini immediately">
+                                    <i class="fa-solid fa-paste"></i> Paste & Link Key
+                                </button>
+                                <button type="button" class="btn btn-sm btn-quickfill-copy" onclick="copyPredefinedKey()" title="Copy key to clipboard">
+                                    <i class="fa-regular fa-copy"></i> Copy
+                                </button>
+                            </div>
+                        </div>
+
                         <div class="gemini-key-helper">
                             <span id="geminiQuickStatus" class="gemini-status-text">Checking status...</span>
                             <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener" class="gemini-get-link" title="Get Free Gemini Key from Google AI Studio">
@@ -297,8 +451,20 @@
                             <button type="button" class="btn-voice-drop" onclick="playPreRenderedDrop('promo_wishes')" title="ශ්‍රාවක සුබ පැතුම්">
                                 <i class="fa-solid fa-heart"></i> සුබපැතුම්
                             </button>
+                            <button type="button" class="btn-voice-drop" onclick="playPreRenderedDrop('promo_birthday')" title="උපන්දින සුබ පැතුම්">
+                                <i class="fa-solid fa-cake-candles"></i> 🎂 උපන්දින
+                            </button>
+                            <button type="button" class="btn-voice-drop" onclick="playPreRenderedDrop('promo_comedy')" title="විනෝදජනක කතාබහ">
+                                <i class="fa-solid fa-face-laugh-squint"></i> 😄 විනෝදය
+                            </button>
+                            <button type="button" class="btn-voice-drop" onclick="playPreRenderedDrop('promo_dedication')" title="ගීත තිළිණය">
+                                <i class="fa-solid fa-headphones"></i> 🎧 තිළිණ
+                            </button>
                             <button type="button" class="btn-voice-drop" onclick="playPreRenderedDrop('promo_station_id')" title="Radio ID Jingle">
                                 <i class="fa-solid fa-tower-broadcast"></i> Station ID
+                            </button>
+                            <button type="button" class="btn-voice-drop" onclick="playPreRenderedDrop('promo_radio_future')" title="Future of Sound ID">
+                                <i class="fa-solid fa-bolt"></i> Future ID
                             </button>
                             <button type="button" class="btn-voice-drop" onclick="playPreRenderedDrop('promo_morning')" title="සුබ උදෑසනක්">
                                 <i class="fa-solid fa-sun"></i> උදෑසන
@@ -309,14 +475,109 @@
                             <button type="button" class="btn-voice-drop" onclick="playPreRenderedDrop('promo_next_song')" title="මීළඟ ගීතය හඳුන්වාදීම">
                                 <i class="fa-solid fa-music"></i> Next Track
                             </button>
+                            <button type="button" class="btn-voice-drop" onclick="playPreRenderedDrop('promo_traffic')" title="ට්‍රැෆික් විනෝදය">
+                                <i class="fa-solid fa-car"></i> ට්‍රැෆික්
+                            </button>
                         </div>
                     </div>
 
-                    <div class="quick-sample-chips">
-                        <span class="chip-label">Custom Scripts:</span>
-                        <button type="button" class="sample-chip" onclick="insertSample('promo')">+ විශේෂ වට්ටම්</button>
-                        <button type="button" class="sample-chip" onclick="insertSample('wishes')">+ සුබ පැතුම්</button>
-                        <button type="button" class="sample-chip" onclick="insertSample('radio')">+ Radio ID</button>
+                    <!-- AI Broadcast Suggestion Templates & Dedication Studio -->
+                    <div class="script-templates-studio">
+                        <div class="template-studio-header">
+                            <div class="template-studio-title">
+                                <i class="fa-solid fa-wand-magic-sparkles" style="color: #ec4899;"></i>
+                                <span><strong>AI Broadcast Suggestion Templates</strong></span>
+                            </div>
+                            <div class="listener-name-wrap">
+                                <i class="fa-solid fa-user-tag"></i>
+                                <input type="text" id="listenerNameInput" placeholder="ශ්‍රාවක නම (උදා: කසුන් / Kasun)..." oninput="onListenerNameChange()">
+                            </div>
+                        </div>
+
+                        <!-- Template Category Sections -->
+                        <div class="template-categories-container">
+                            <!-- 1. DEDICATIONS -->
+                            <div class="template-category-card">
+                                <div class="template-category-head">
+                                    <span class="cat-pill pill-pink"><i class="fa-solid fa-headphones"></i> Song Dedications</span>
+                                    <small class="cat-desc">නම එක්කර මීළඟ ගීතය තිළිණ කිරීම</small>
+                                </div>
+                                <div class="template-chip-grid">
+                                    <button type="button" class="template-chip" onclick="applyTemplate('dedication_next')" title="මීළඟ ගීතය නම් කර තිළිණ කිරීම">
+                                        + මීළඟ ගීතයට නම එක්කිරීම
+                                    </button>
+                                    <button type="button" class="template-chip" onclick="applyTemplate('dedication_request')" title="ශ්‍රාවක විශේෂ ඉල්ලීම">
+                                        + විශේෂ ඉල්ලීමක්
+                                    </button>
+                                    <button type="button" class="template-chip" onclick="applyTemplate('dedication_special')" title="ආදරණීය ගීත තිළිණය">
+                                        + ආදරණීය තිළිණය
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- 2. BIRTHDAY WISHES -->
+                            <div class="template-category-card">
+                                <div class="template-category-head">
+                                    <span class="cat-pill pill-purple"><i class="fa-solid fa-cake-candles"></i> Birthday Wishes</span>
+                                    <small class="cat-desc">උපන්දින සුබ පැතුම්</small>
+                                </div>
+                                <div class="template-chip-grid">
+                                    <button type="button" class="template-chip" onclick="applyTemplate('bday_classic')" title="ප්‍රීතිමත් උපන්දින පැතුම">
+                                        + සුබ උපන්දිනයක් (Official)
+                                    </button>
+                                    <button type="button" class="template-chip" onclick="applyTemplate('bday_milestone')" title="දීර්ඝායුෂ හා සතුට">
+                                        + ආශිර්වාදාත්මක පැතුම
+                                    </button>
+                                    <button type="button" class="template-chip" onclick="applyTemplate('bday_party')" title="Party Vibes Birthday">
+                                        + Party Vibes 🎂
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- 3. COMEDY & FUN BANTER -->
+                            <div class="template-category-card">
+                                <div class="template-category-head">
+                                    <span class="cat-pill pill-amber"><i class="fa-solid fa-face-laugh-squint"></i> Comedy & Banter</span>
+                                    <small class="cat-desc">හාස්‍ය හා විනෝදජනක කතාබහ</small>
+                                </div>
+                                <div class="template-chip-grid">
+                                    <button type="button" class="template-chip" onclick="applyTemplate('comedy_work')" title="වැඩ ඇරිලා Full Chill">
+                                        + වැඩ ඇරිලා Chill 🍻
+                                    </button>
+                                    <button type="button" class="template-chip" onclick="applyTemplate('comedy_traffic')" title="ට්‍රැෆික් එකේ නැටුමක්">
+                                        + ට්‍රැෆික් Beat 🚗
+                                    </button>
+                                    <button type="button" class="template-chip" onclick="applyTemplate('comedy_tea')" title="තේ වෙලාවට විනෝදයක්">
+                                        + තේ වෙලාවේ කතාව ☕
+                                    </button>
+                                    <button type="button" class="template-chip" onclick="applyTemplate('comedy_love')" title="ආදර රණ්ඩුවකට බෙහෙත්">
+                                        + ආදර රණ්ඩු Shape 💕
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- 4. RADIO 4DM ID MENTIONS -->
+                            <div class="template-category-card">
+                                <div class="template-category-head">
+                                    <span class="cat-pill pill-blue"><i class="fa-solid fa-tower-broadcast"></i> Radio 4DM ID Mentions</span>
+                                    <small class="cat-desc">රේඩියෝ ID හා Jingles</small>
+                                </div>
+                                <div class="template-chip-grid">
+                                    <button type="button" class="template-chip" onclick="applyTemplate('id_fresh')" title="ශ්‍රී ලාංකේය නැවුම් රිද්මය">
+                                        + නැවුම් රිද්මය (සිංහල)
+                                    </button>
+                                    <button type="button" class="template-chip" onclick="applyTemplate('id_future')" title="Future of Digital Sound">
+                                        + Digital Sound (English)
+                                    </button>
+                                    <button type="button" class="template-chip" onclick="applyTemplate('id_heart')" title="ඔබේම රේඩියෝව">
+                                        + ඔබේම රේඩියෝව
+                                    </button>
+                                    <button type="button" class="template-chip" onclick="applyTemplate('id_nonstop')" title="24/7 Nonstop Hits">
+                                        + 24/7 Nonstop Hits
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <form id="adForm" class="control-form">
@@ -349,6 +610,28 @@
                                     <option value="si-female">🌸 Female Radio RJ (කාන්තා කටහඬ)</option>
                                     <option value="si-male">🎙️ Male Radio Host (පිරිමි කටහඬ)</option>
                                 </select>
+                            </div>
+                        </div>
+
+                        <!-- AI Voice Master Volume Level Control Bar -->
+                        <div class="voice-gain-slider-card">
+                            <div class="voice-gain-header">
+                                <div class="gain-title-wrap">
+                                    <i class="fa-solid fa-volume-high" style="color: #f59e0b;"></i>
+                                    <div>
+                                        <span class="gain-main-label">AI Voice Volume (ශබ්ද මට්ටම):</span>
+                                        <small class="gain-sub-label">News, Cricket, Time & Voiceover ශබ්දය අවශ්‍ය පරිදි අඩු/වැඩි කරන්න</small>
+                                    </div>
+                                </div>
+                                <div class="gain-actions-wrap">
+                                    <span id="voiceGainDisplay" class="gain-badge">135%</span>
+                                    <button type="button" class="btn btn-sm btn-gain-reset" onclick="resetVoiceGain()" title="Reset to standard 100%">100%</button>
+                                </div>
+                            </div>
+                            <div class="gain-slider-track-wrap">
+                                <span class="gain-min-lbl"><i class="fa-solid fa-volume-low"></i> 50%</span>
+                                <input type="range" id="voiceGainSlider" min="50" max="250" value="135" step="5" oninput="onVoiceGainChange(this.value)">
+                                <span class="gain-max-lbl"><i class="fa-solid fa-volume-high"></i> 250%</span>
                             </div>
                         </div>
 
@@ -465,7 +748,12 @@
                 <div class="setting-item">
                     <label>Google Gemini API Key (Dedicated Radio Voice):</label>
                     <input type="password" id="modalGeminiKey" placeholder="Paste Gemini API Key (starts with AIzaSy...)">
-                    <small>Get your free lifetime API Key from <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener" style="color: #60a5fa;">Google AI Studio</a> (AIzaSy...).</small>
+                    <div style="margin-top: 6px; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+                        <small>Get free key from <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener" style="color: #60a5fa;">Google AI Studio</a>.</small>
+                        <button type="button" class="btn btn-sm btn-quickfill-paste" onclick="document.getElementById('modalGeminiKey').value = 'AQ.Ab8RN6KuK5zmnKB6t1XaiGOhxDEv2lYH225u7peYOOphrubhKw'; showToast('Google Key Paste විය! Save Settings ඔබන්න.');" style="padding: 4px 10px; font-size: 0.75rem;">
+                            <i class="fa-solid fa-paste"></i> Paste User Key: AQ.Ab8RN...
+                        </button>
+                    </div>
                 </div>
 
                 <div class="setting-row">
