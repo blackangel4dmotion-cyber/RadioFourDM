@@ -1542,10 +1542,7 @@ input:checked + .slider:before {
     -webkit-box-orient: vertical;
 }
 
-.badge-gemini-active {
-    background: rgba(16, 185, 129, 0.2);
-    color: #10b981;
-    border: 1px solid rgba(16, 185, 129, 0.4);
+.badge-gemini-status {
     font-size: 9.5px;
     font-weight: 700;
     padding: 2px 7px;
@@ -1555,6 +1552,144 @@ input:checked + .slider:before {
     gap: 4px;
     vertical-align: middle;
     margin-left: 6px;
+    background: rgba(148, 163, 184, 0.2);
+    color: #94a3b8;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    transition: all 0.3s ease;
+}
+
+.badge-gemini-status.online {
+    background: rgba(16, 185, 129, 0.2);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+.badge-gemini-status.offline {
+    background: rgba(239, 68, 68, 0.18);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+/* Gemini Key Bar */
+.gemini-key-box {
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin-bottom: 12px;
+}
+
+.gemini-key-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.gemini-input-wrap {
+    position: relative;
+    flex: 1;
+    display: flex;
+    align-items: center;
+}
+
+.gemini-key-icon {
+    position: absolute;
+    left: 10px;
+    color: #f59e0b;
+    font-size: 13px;
+    pointer-events: none;
+}
+
+.gemini-input-wrap input {
+    width: 100%;
+    background: #0f172a;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    color: #f8fafc;
+    font-size: 11.5px;
+    padding: 6px 32px 6px 30px;
+    transition: border-color 0.2s;
+}
+
+.gemini-input-wrap input:focus {
+    border-color: #f59e0b;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+}
+
+.btn-toggle-eye {
+    position: absolute;
+    right: 8px;
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    font-size: 12px;
+    padding: 2px 4px;
+}
+
+.btn-toggle-eye:hover {
+    color: #f8fafc;
+}
+
+.btn-gemini-link {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 11.5px;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    transition: opacity 0.2s;
+}
+
+.btn-gemini-link:hover {
+    opacity: 0.9;
+}
+
+.btn-gemini-link:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.gemini-key-helper {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 6px;
+    font-size: 10.5px;
+}
+
+.gemini-status-text {
+    color: #94a3b8;
+}
+
+.gemini-status-text.ok {
+    color: #10b981;
+    font-weight: 600;
+}
+
+.gemini-status-text.warn {
+    color: #f87171;
+    font-weight: 600;
+}
+
+.gemini-get-link {
+    color: #60a5fa;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.gemini-get-link:hover {
+    text-decoration: underline;
+    color: #93c5fd;
 }
 
 /* ===================================================
@@ -1661,4 +1796,846 @@ input:checked + .slider:before {
 
 .btn-search-add:hover {
     opacity: 0.85;
+}
+
+/* ==========================================
+   PRO DJ HARDWARE TURNTABLE & VU METERS
+   ========================================== */
+.turntable-visual-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 6px;
+    background: rgba(0, 0, 0, 0.35);
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    margin: 4px 0;
+}
+
+.turntable-box {
+    position: relative;
+    width: 64px;
+    height: 64px;
+    background: radial-gradient(circle, #1a2234 0%, #0d121d 70%, #070a10 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.8), 0 2px 6px rgba(0,0,0,0.5);
+    border: 2px solid #202b3d;
+}
+
+.vinyl-platter {
+    position: relative;
+    width: 56px;
+    height: 56px;
+    background: radial-gradient(circle, #181818 35%, #050505 85%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 0 4px rgba(255,255,255,0.08);
+    transition: box-shadow 0.3s ease;
+}
+
+.vinyl-platter.spinning {
+    animation: spinVinyl 1.8s linear infinite;
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.4), inset 0 0 4px rgba(255,255,255,0.2);
+}
+
+#vinylPlatterB.spinning {
+    box-shadow: 0 0 12px rgba(245, 158, 11, 0.4), inset 0 0 4px rgba(255,255,255,0.2);
+}
+
+@keyframes spinVinyl {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.vinyl-groove {
+    position: absolute;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 1px dashed rgba(255, 255, 255, 0.08);
+    pointer-events: none;
+}
+
+.vinyl-groove.groove-inner {
+    width: 32px;
+    height: 32px;
+    border: 1px dotted rgba(255, 255, 255, 0.1);
+}
+
+.vinyl-center-label {
+    position: relative;
+    z-index: 2;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 5.5px;
+    font-weight: 800;
+    color: #fff;
+    border: 1.5px solid #fff;
+}
+
+.label-deck-a {
+    background: linear-gradient(135deg, #1d4ed8, #3b82f6);
+}
+
+.label-deck-b {
+    background: linear-gradient(135deg, #b45309, #f59e0b);
+}
+
+.turntable-tonearm {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 22px;
+    height: 2.5px;
+    background: linear-gradient(90deg, #94a3b8, #cbd5e1);
+    border-radius: 2px;
+    transform-origin: right center;
+    transform: rotate(18deg);
+    transition: transform 0.4s ease;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.6);
+}
+
+.turntable-tonearm.active {
+    transform: rotate(45deg);
+}
+
+/* VU Meter LEDs */
+.deck-vu-meter-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 3px;
+}
+
+.vu-meter-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 2.5px;
+    background: #05070a;
+    padding: 3px 4px;
+    border-radius: 3px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.vu-led {
+    width: 14px;
+    height: 4px;
+    border-radius: 1px;
+    opacity: 0.15;
+    transition: opacity 0.08s ease, box-shadow 0.08s ease;
+}
+
+.vu-led.led-red { background: #ef4444; }
+.vu-led.led-yellow { background: #f59e0b; }
+.vu-led.led-green { background: #10b981; }
+
+.vu-led.lit {
+    opacity: 1;
+}
+
+.vu-led.led-red.lit {
+    box-shadow: 0 0 6px #ef4444;
+}
+
+.vu-led.led-yellow.lit {
+    box-shadow: 0 0 6px #f59e0b;
+}
+
+.vu-led.led-green.lit {
+    box-shadow: 0 0 6px #10b981;
+}
+
+.vu-label {
+    font-size: 7.5px;
+    font-weight: 800;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-muted);
+}
+
+.deck-on-air-pill {
+    display: none;
+    font-size: 8px;
+    font-weight: 800;
+    padding: 1px 5px;
+    border-radius: 10px;
+    background: rgba(239, 68, 68, 0.2);
+    border: 1px solid #ef4444;
+    color: #ef4444;
+    letter-spacing: 0.5px;
+}
+
+.deck-on-air-pill.active {
+    display: inline-block;
+    animation: onAirPulse 1.2s infinite alternate;
+}
+
+@keyframes onAirPulse {
+    from { opacity: 0.6; box-shadow: 0 0 2px #ef4444; }
+    to { opacity: 1; box-shadow: 0 0 8px #ef4444; }
+}
+
+.deck-channel.on-air {
+    border-color: rgba(59, 130, 246, 0.4);
+    box-shadow: inset 0 0 10px rgba(59, 130, 246, 0.05);
+}
+
+.deck-channel-b.on-air {
+    border-color: rgba(245, 158, 11, 0.4);
+    box-shadow: inset 0 0 10px rgba(245, 158, 11, 0.05);
+}
+
+.deck-progress-bar-wrap {
+    width: 100%;
+    height: 3px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 2px;
+    overflow: hidden;
+    margin: 3px 0;
+}
+
+.deck-progress-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #3b82f6, #60a5fa);
+    border-radius: 2px;
+    transition: width 0.3s linear;
+}
+
+.deck-channel-b .deck-progress-bar {
+    background: linear-gradient(90deg, #d97706, #fbbf24);
+}
+
+/* ==========================================
+   GEMINI KEY QUICK-FILL CARD
+   ========================================== */
+.gemini-key-quickfill-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(217, 119, 6, 0.04));
+    border: 1px solid rgba(245, 158, 11, 0.25);
+    border-radius: 6px;
+    padding: 6px 10px;
+    margin-top: 6px;
+    flex-wrap: wrap;
+}
+
+.key-quickfill-content {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.key-quickfill-title {
+    font-size: 10px;
+    font-weight: 700;
+    color: #fbbf24;
+}
+
+.key-quickfill-code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px;
+    color: #93c5fd;
+    background: rgba(0, 0, 0, 0.4);
+    padding: 2px 6px;
+    border-radius: 4px;
+    letter-spacing: 0.3px;
+    word-break: break-all;
+    user-select: all;
+}
+
+.key-quickfill-actions {
+    display: flex;
+    gap: 5px;
+    flex-shrink: 0;
+}
+
+.btn-quickfill-paste {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: #0f172a;
+    font-weight: 700;
+    border: none;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 10px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: transform 0.1s ease, box-shadow 0.2s ease;
+}
+
+.btn-quickfill-paste:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4);
+}
+
+.btn-quickfill-copy {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #e2e8f0;
+    font-weight: 600;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 10px;
+    cursor: pointer;
+}
+
+.btn-quickfill-copy:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+/* ==========================================
+   AI VOICE SCRIPT TEMPLATES & DEDICATION STUDIO
+   ========================================== */
+.script-templates-studio {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin: 8px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.template-studio-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.template-studio-title {
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: #f1f5f9;
+}
+
+.listener-name-wrap {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(236, 72, 153, 0.3);
+    border-radius: 5px;
+    padding: 2px 8px;
+}
+
+.listener-name-wrap i {
+    font-size: 10px;
+    color: #ec4899;
+}
+
+.listener-name-wrap input {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #fff;
+    font-size: 10.5px;
+    width: 150px;
+}
+
+.template-categories-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+}
+
+@media (max-width: 900px) {
+    .template-categories-container {
+        grid-template-columns: 1fr;
+    }
+}
+
+.template-category-card {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 6px;
+    padding: 6px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.template-category-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+}
+
+.cat-pill {
+    font-size: 9.5px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.pill-pink { background: rgba(236, 72, 153, 0.15); color: #f472b6; border: 1px solid rgba(236, 72, 153, 0.3); }
+.pill-purple { background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); }
+.pill-amber { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+.pill-blue { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+
+.cat-desc {
+    font-size: 8.5px;
+    color: var(--text-muted);
+}
+
+.template-chip-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.template-chip {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #e2e8f0;
+    font-size: 9.5px;
+    padding: 3px 7px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-align: left;
+}
+
+.template-chip:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+    transform: translateY(-1px);
+    color: #fff;
+}
+
+/* Floating Studio Toast */
+.studio-toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: #1e293b;
+    border: 1px solid #3b82f6;
+    color: #fff;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 11.5px;
+    font-weight: 600;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    z-index: 99999;
+    opacity: 0;
+    transform: translateY(10px);
+    pointer-events: none;
+    transition: all 0.25s ease;
+}
+
+.studio-toast.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* ==========================================
+   PRO DJ HARDWARE DECK DETAILS & STEREO METERS
+   ========================================== */
+.deck-bpm-sync {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.bpm-text {
+    font-size: 10px;
+    font-weight: 700;
+    color: #94a3b8;
+}
+
+.bpm-text small {
+    font-size: 8px;
+    color: var(--text-muted);
+}
+
+.badge-sync {
+    font-size: 7.5px;
+    font-weight: 800;
+    padding: 1px 4px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+}
+
+.badge-sync.active {
+    background: rgba(59, 130, 246, 0.2);
+    border-color: #3b82f6;
+    color: #60a5fa;
+    box-shadow: 0 0 6px rgba(59, 130, 246, 0.3);
+}
+
+.deck-channel-b .badge-sync.active {
+    background: rgba(245, 158, 11, 0.2);
+    border-color: #f59e0b;
+    color: #fbbf24;
+    box-shadow: 0 0 6px rgba(245, 158, 11, 0.3);
+}
+
+.deck-hardware-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 3px 6px;
+    background: rgba(0, 0, 0, 0.25);
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    margin: 2px 0;
+}
+
+.hot-cue-row {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.cue-pad {
+    font-size: 7.5px;
+    font-weight: 800;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 2px 5px;
+    border-radius: 2px;
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    color: #93c5fd;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.1s ease;
+}
+
+.cue-pad:hover {
+    background: rgba(59, 130, 246, 0.3);
+    box-shadow: 0 0 4px rgba(59, 130, 246, 0.5);
+}
+
+.cue-pad-b {
+    background: rgba(245, 158, 11, 0.1);
+    border-color: rgba(245, 158, 11, 0.3);
+    color: #fde68a;
+}
+
+.cue-pad-b:hover {
+    background: rgba(245, 158, 11, 0.3);
+    box-shadow: 0 0 4px rgba(245, 158, 11, 0.5);
+}
+
+.loop-pad {
+    background: rgba(16, 185, 129, 0.1);
+    border-color: rgba(16, 185, 129, 0.3);
+    color: #6ee7b7;
+}
+
+.pitch-indicator {
+    font-size: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-muted);
+}
+
+.pitch-indicator span {
+    color: #e2e8f0;
+    font-weight: 700;
+}
+
+/* Master Stereo L/R Meters */
+.master-stereo-meters {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 5px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 4px 6px;
+    margin-bottom: 4px;
+}
+
+.meter-title {
+    font-size: 7.5px;
+    font-weight: 800;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+}
+
+.stereo-bars-wrap {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.stereo-bars-wrap .vu-meter-bar {
+    padding: 2px 3px;
+}
+
+.stereo-bars-wrap .vu-led {
+    width: 10px;
+    height: 3px;
+}
+
+/* Hardware GPU acceleration for zero UI lag */
+.vinyl-platter {
+    will-change: transform;
+    transform: translateZ(0);
+}
+
+/* ==========================================
+   LIVE CRICKET HIGHLIGHTS & SCORES STUDIO
+   ========================================== */
+.cricket-card {
+    border-left: 3px solid #10b981;
+    background: linear-gradient(145deg, #111827 0%, #0d1a1b 100%);
+}
+
+.badge-live-cricket {
+    background: rgba(16, 185, 129, 0.15);
+    border: 1px solid #10b981;
+    color: #10b981;
+    font-size: 9px;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+}
+
+.badge-live-cricket.standby {
+    background: rgba(148, 163, 184, 0.12);
+    border: 1px solid #64748b;
+    color: #94a3b8;
+}
+
+.cricket-lang-toggle-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.lang-label-txt {
+    font-size: 10px;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.lang-switch-pills {
+    display: flex;
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 5px;
+    padding: 2px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.btn-lang-pill {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-lang-pill.active {
+    background: #10b981;
+    color: #fff;
+    box-shadow: 0 1px 4px rgba(16, 185, 129, 0.4);
+}
+
+.cricket-display-box {
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(16, 185, 129, 0.15);
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin: 6px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.cricket-headline-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.cricket-tag {
+    font-size: 8.5px;
+    font-weight: 800;
+    color: #34d399;
+    letter-spacing: 0.5px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.cricket-time {
+    font-size: 8.5px;
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+}
+
+#cricketHeadline {
+    font-size: 12px;
+    font-weight: 700;
+    color: #f1f5f9;
+    line-height: 1.4;
+    margin: 0;
+}
+
+.cricket-summary {
+    font-size: 10.5px;
+    color: #94a3b8;
+    line-height: 1.4;
+    margin: 0;
+}
+
+.cricket-action-row {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.btn-cricket-broadcast {
+    flex: 1;
+    background: linear-gradient(135deg, #059669, #10b981);
+    color: #fff;
+    font-weight: 700;
+    border: none;
+    border-radius: 5px;
+    padding: 7px 12px;
+    font-size: 11px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: transform 0.1s ease, box-shadow 0.2s ease;
+}
+
+.btn-cricket-broadcast:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(16, 185, 129, 0.4);
+}
+
+/* ==========================================
+   AI VOICE MASTER VOLUME SLIDER CONTROL
+   ========================================== */
+.voice-gain-slider-card {
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid rgba(245, 158, 11, 0.25);
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+}
+
+.voice-gain-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.gain-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.gain-main-label {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #f8fafc;
+    display: block;
+}
+
+.gain-sub-label {
+    font-size: 0.68rem;
+    color: #94a3b8;
+    display: block;
+}
+
+.gain-actions-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.gain-badge {
+    background: rgba(245, 158, 11, 0.2);
+    border: 1px solid rgba(245, 158, 11, 0.5);
+    color: #f59e0b;
+    font-size: 0.8rem;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 12px;
+    min-width: 44px;
+    text-align: center;
+}
+
+.btn-gain-reset {
+    background: transparent;
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    color: #fbbf24;
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-gain-reset:hover {
+    background: rgba(245, 158, 11, 0.2);
+    color: #fff;
+}
+
+.gain-slider-track-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.gain-min-lbl, .gain-max-lbl {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #94a3b8;
+    white-space: nowrap;
+}
+
+#voiceGainSlider {
+    flex-grow: 1;
+    height: 6px;
+    border-radius: 3px;
+    accent-color: #f59e0b;
+    cursor: pointer;
 }
