@@ -394,15 +394,18 @@
                             </button>
                         </div>
                         
-                        <!-- 1-Click Predefined Key Card -->
+                        <!-- 1-Click Xtream & Quickfill Key Card -->
                         <div class="gemini-key-quickfill-card">
                             <div class="key-quickfill-content">
-                                <span class="key-quickfill-title"><i class="fa-solid fa-sparkles" style="color: #f59e0b;"></i> ඔබගේ Google Key එක (1-Click Paste & Link):</span>
-                                <code class="key-quickfill-code" id="predefinedKeyText">AQ.Ab8RN6KuK5zmnKB6t1XaiGOhxDEv2lYH225u7peYOOphrubhKw</code>
+                                <span class="key-quickfill-title"><i class="fa-solid fa-bolt-lightning" style="color: #10b981;"></i> ඔබගේ Google Key එක (Xtream Auto-Link):</span>
+                                <code class="key-quickfill-code" id="predefinedKeyText"><i class="fa-solid fa-shield-halved" style="color: #10b981;"></i> [XTREAM-SECURED-VAULT]</code>
                             </div>
                             <div class="key-quickfill-actions">
+                                <button type="button" id="btnXtreamLink" class="btn btn-sm btn-quickfill-xtream" onclick="triggerXtreamLink()" title="Click to Link Valid Xtream Key immediately">
+                                    <i class="fa-solid fa-bolt"></i> Xtream <span class="xtream-timer-badge" id="xtreamCountdown">02:00</span>
+                                </button>
                                 <button type="button" class="btn btn-sm btn-quickfill-paste" onclick="pasteAndLinkPredefinedKey()" title="Click to fill key and link Gemini immediately">
-                                    <i class="fa-solid fa-paste"></i> Paste & Link Key
+                                    <i class="fa-solid fa-paste"></i> Paste & Link
                                 </button>
                                 <button type="button" class="btn btn-sm btn-quickfill-copy" onclick="copyPredefinedKey()" title="Copy key to clipboard">
                                     <i class="fa-regular fa-copy"></i> Copy
@@ -749,9 +752,9 @@
                     <label>Google Gemini API Key (Dedicated Radio Voice):</label>
                     <input type="password" id="modalGeminiKey" placeholder="Paste Gemini API Key (starts with AIzaSy...)">
                     <div style="margin-top: 6px; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
-                        <small>Get free key from <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener" style="color: #60a5fa;">Google AI Studio</a>.</small>
-                        <button type="button" class="btn btn-sm btn-quickfill-paste" onclick="document.getElementById('modalGeminiKey').value = 'AQ.Ab8RN6KuK5zmnKB6t1XaiGOhxDEv2lYH225u7peYOOphrubhKw'; showToast('Google Key Paste විය! Save Settings ඔබන්න.');" style="padding: 4px 10px; font-size: 0.75rem;">
-                            <i class="fa-solid fa-paste"></i> Paste User Key: AQ.Ab8RN...
+                        <small>Auto-secured in server-side encrypted vault.</small>
+                        <button type="button" class="btn btn-sm btn-quickfill-xtream" onclick="triggerXtreamLink();" style="padding: 4px 10px; font-size: 0.75rem;">
+                            <i class="fa-solid fa-bolt"></i> ⚡ Xtream Key
                         </button>
                     </div>
                 </div>
