@@ -46,14 +46,17 @@ def is_unwanted_unofficial_cover(title: str, uploader: str = "") -> bool:
     # Reject old classical songs / retro oldies (Station plays ONLY modern hits & modern remixes)
     old_classic_patterns = [
         "old song", "classic song", "golden oldies", "70s", "80s", "90s hits",
-        "purana", "parana sindu", "calypso", "vintage", "retro live",
+        "70's", "80's", "90's", "purana", "parana sindu", "calypso", "vintage", "retro live",
         "old hits", "nonstop oldies", "sarala gee", "classical", "gramophone",
         "bailaya", "old baila", "clarence wijewardena", "clarence", "h.r. jothipala",
         "hr jothipala", "jothipala", "milton mallawarachchi", "milton", "amaradeva",
         "pandith amaradeva", "victor rathnayake", "sunil santha", "c.t. fernando",
         "ct fernando", "edward jayakody", "t.m. jayaratne", "tm jayaratne",
         "sanath nandashiri", "neela wickramasinghe", "old cassette", "parana geetha",
-        "cassette", "retro hits", "alborada", "parana"
+        "cassette", "retro hits", "alborada", "parana", "old sinhala", "classic hits",
+        "parana songs", "purana geetha", "walikada", "calypso nonstop", "baila nonstop",
+        "oldies", "nostalgia", "vintage sinhala", "cassette eka", "sarala geetha",
+        "parani", "parani gee", "baila party", "calypso band", "acoustic baila"
     ]
     for p in old_classic_patterns:
         if p in t or p in u:
@@ -414,7 +417,7 @@ class AutoDJEngine:
                             print(f"[AutoDJ] Filtered out unwanted/karaoke track: '{cand_title}' ({cand_uploader})")
                             continue
 
-                        # 2. Filter out channels with fewer than 10,000 subscribers (Aduma 10k subscribers)
+                        # 2. Filter out channels with fewer than 50,000 subscribers (Aduma 50k subscribers)
                         followers = cand.get('channel_follower_count')
                         if followers is None:
                             followers = cand.get('subscriber_count')
@@ -422,14 +425,14 @@ class AutoDJEngine:
                         is_topic = "- topic" in cand_uploader.lower() or "- topic" in cand_channel.lower() or "official audio" in cand_title.lower()
                         
                         if not is_topic:
-                            if followers is not None and followers < 10000:
-                                print(f"[AutoDJ] Rejected low subscriber channel ({followers} < 10,000): '{cand_title}' ({cand_uploader})")
+                            if followers is not None and followers < 50000:
+                                print(f"[AutoDJ] Rejected low subscriber channel ({followers} < 50,000): '{cand_title}' ({cand_uploader})")
                                 continue
                             elif followers is None:
                                 is_verified = bool(cand.get('channel_is_verified'))
                                 views = cand.get('view_count') or 0
-                                if not is_verified and views < 15000:
-                                    print(f"[AutoDJ] Rejected unverified channel with low views ({views} < 15k): '{cand_title}' ({cand_uploader})")
+                                if not is_verified and views < 50000:
+                                    print(f"[AutoDJ] Rejected unverified channel with low views ({views} < 50k): '{cand_title}' ({cand_uploader})")
                                     continue
 
                         if is_topic:

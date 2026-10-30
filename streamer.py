@@ -355,13 +355,9 @@ class AudioStationEngine:
         return t[:35] # Match primary 35 chars
 
     def is_duplicate(self, title: str, url: str = "") -> bool:
-        """Strict check to prevent playing the same song twice on the same day (86400 seconds lockout)."""
+        """Strict check: Auto-DJ will NEVER repeat any played song unless explicitly requested by a user."""
         norm = self._normalize_title(title)
-        now = time.time()
         with self.lock:
-            # Clean up history entries older than 24 hours (86400 seconds)
-            self.played_history = {k: v for k, v in self.played_history.items() if (now - v) < 86400}
-
             # 1. Check active playing decks
             for deck in [self.deck_a, self.deck_b]:
                 if deck.is_active and deck.track:
@@ -377,11 +373,9 @@ class AudioStationEngine:
                 if url and t.get("original_url") == url:
                     return True
 
-            # 3. Check 24-hour (same day) played history (86400s repeat lockout)
+            # 3. Check permanent played history (Never repeat without explicit user request)
             if norm and norm in self.played_history:
-                last_time = self.played_history[norm]
-                if now - last_time < 86400:
-                    return True
+                return True
 
         return False
 
