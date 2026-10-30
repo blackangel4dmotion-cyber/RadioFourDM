@@ -27,6 +27,17 @@ auto_dj = AutoDJEngine(station_engine)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: Start background workers exactly once
+    try:
+        from api_vault import vault
+        if vault.get_key():
+            os.environ["GEMINI_API_KEY"] = vault.get_key()
+            cfg = load_config()
+            cfg["gemini_api_key"] = "[ENCRYPTED_VAULT_ACTIVE]"
+            cfg["tts_provider"] = "gemini"
+            save_config(cfg)
+            print(f"[Lifespan] Xtream Vault auto-linked successfully: {vault.get_masked_key()}")
+    except Exception as e:
+        print(f"[Lifespan] Vault auto-link error: {e}")
     station_engine.start()
     auto_dj.start()
     yield
