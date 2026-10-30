@@ -24,14 +24,20 @@ def is_unwanted_unofficial_cover(title: str, uploader: str = "") -> bool:
     t = (title or "").lower()
     u = (uploader or "").lower()
 
-    # Reject obvious amateur cover patterns
+    # Reject obvious amateur cover, karaoke, and pitch-altered patterns
     bad_patterns = [
         "guitar cover", "piano cover", "drum cover", "acoustic cover",
         "karaoke", "instrumental cover", "reaction", "reacting", "vocal cover",
         "singing cover", "bedroom cover", "fan cover", "amateur cover",
         "female version cover", "male version cover", "unplugged cover",
         "bass cover", "ukulele cover", "dance cover", "tutorial",
-        "how to play", "lyrics only", "chords", "shorts", "shorts cover"
+        "how to play", "lyrics only", "chords", "shorts", "shorts cover",
+        "minus one", "minus track", "instrumental", "backing track",
+        "without vocal", "without vocals", "vocals removed", "vocal cut",
+        "vocal removed", "acapella", "pitch shifted", "pitch shift",
+        "nightcore", "speed up", "sped up", "slowed reverb", "slowed + reverb",
+        "slowed down", "chipmunk", "8d audio", "high pitch", "low pitch",
+        "key change", "karaoke version", "vocal isolated"
     ]
     for p in bad_patterns:
         if p in t:
@@ -379,7 +385,8 @@ class AutoDJEngine:
 
             try:
                 ydl_opts = {
-                    'format': 'bestaudio/best',
+                    'format': 'bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best',
+                    'format_sort': ['abr', 'quality'],
                     'quiet': True,
                     'no_warnings': True,
                     'default_search': 'ytsearch',
@@ -394,32 +401,48 @@ class AutoDJEngine:
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     info = ydl.extract_info(yt_query, download=False)
                     candidates = info.get('entries') or ([info] if info and info.get('url') else [])
+                    topic_candidates = []
+                    valid_candidates = []
                     for cand in candidates:
                         if not cand or not cand.get('url'):
                             continue
                         cand_title = cand.get('title', '')
                         cand_uploader = cand.get('uploader', '')
-                        # 1. Filter out unofficial / amateur cover songs and old classics
-                        if is_unwanted_unofficial_cover(cand_title, cand_uploader):
-                            print(f"[AutoDJ] Filtered out cover or classic track: '{cand_title}' ({cand_uploader})")
+                        cand_channel = cand.get('channel', '')
+                        # 1. Filter out unofficial / amateur cover songs, karaoke, pitch-altered, and old classics
+                        if is_unwanted_unofficial_cover(cand_title, cand_uploader) or is_unwanted_unofficial_cover(cand_title, cand_channel):
+                            print(f"[AutoDJ] Filtered out unwanted/karaoke track: '{cand_title}' ({cand_uploader})")
                             continue
 
                         # 2. Filter out channels with fewer than 10,000 subscribers (Aduma 10k subscribers)
                         followers = cand.get('channel_follower_count')
                         if followers is None:
                             followers = cand.get('subscriber_count')
-                        if followers is not None and followers < 10000:
-                            print(f"[AutoDJ] Rejected low subscriber channel ({followers} < 10,000): '{cand_title}' ({cand_uploader})")
-                            continue
-                        elif followers is None:
-                            is_verified = bool(cand.get('channel_is_verified'))
-                            views = cand.get('view_count') or 0
-                            if not is_verified and views < 15000:
-                                print(f"[AutoDJ] Rejected unverified channel with low views ({views} < 15k): '{cand_title}' ({cand_uploader})")
+                        
+                        is_topic = "- topic" in cand_uploader.lower() or "- topic" in cand_channel.lower() or "official audio" in cand_title.lower()
+                        
+                        if not is_topic:
+                            if followers is not None and followers < 10000:
+                                print(f"[AutoDJ] Rejected low subscriber channel ({followers} < 10,000): '{cand_title}' ({cand_uploader})")
                                 continue
+                            elif followers is None:
+                                is_verified = bool(cand.get('channel_is_verified'))
+                                views = cand.get('view_count') or 0
+                                if not is_verified and views < 15000:
+                                    print(f"[AutoDJ] Rejected unverified channel with low views ({views} < 15k): '{cand_title}' ({cand_uploader})")
+                                    continue
 
-                        entry = cand
-                        break
+                        if is_topic:
+                            topic_candidates.append(cand)
+                        else:
+                            valid_candidates.append(cand)
+
+                    # Prefer pure YouTube Music Studio Master Audio (Topic Track)
+                    if topic_candidates:
+                        entry = topic_candidates[0]
+                        print(f"[AutoDJ] Selected YouTube Music Studio Master: '{entry.get('title')}' ({entry.get('uploader')})")
+                    elif valid_candidates:
+                        entry = valid_candidates[0]
             except Exception as yt_err:
                 print(f"[AutoDJ] YouTube attempt: {yt_err}")
 

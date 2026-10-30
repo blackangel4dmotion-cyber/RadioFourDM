@@ -35,6 +35,16 @@ def load_config() -> dict:
                 cfg.update(json.load(f))
         except Exception:
             pass
+
+    # Retrieve from secure encrypted vault in memory
+    try:
+        from api_vault import vault
+        vault_key = vault.get_key()
+        if vault_key:
+            cfg["gemini_api_key"] = vault_key
+    except Exception:
+        pass
+
     env_gemini = os.getenv("GEMINI_API_KEY")
     if env_gemini:
         cfg["gemini_api_key"] = env_gemini

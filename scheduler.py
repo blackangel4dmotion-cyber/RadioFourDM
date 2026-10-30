@@ -89,6 +89,7 @@ class HourlyTimeScheduler:
         self.news_enabled = True
         self.last_announced_hour = -1
         self.last_weather_hour = -1
+        self.last_cricket_hour = -1
         self.last_news_id = None
         self.last_polled_news_time = 0
         self.last_tagline_time = time.time()
@@ -97,7 +98,7 @@ class HourlyTimeScheduler:
         self.last_cricket_broadcast_time = time.time()
         self.lock = threading.Lock()
         
-        # Threads for hourly time, 10-minute quick news poller, automatic Radio ID drops, and 20-min Cricbuzz live updates
+        # Threads for hourly time/weather/cricket loop, 10-minute quick news poller, and automatic Radio ID drops
         self.worker_thread = threading.Thread(target=self._run_time_loop, daemon=True)
         self.worker_thread.start()
         
@@ -106,9 +107,6 @@ class HourlyTimeScheduler:
 
         self.tagline_thread = threading.Thread(target=self._run_tagline_loop, daemon=True)
         self.tagline_thread.start()
-
-        self.cricket_thread = threading.Thread(target=self._run_cricket_loop, daemon=True)
-        self.cricket_thread.start()
 
     def set_enabled(self, state: bool):
         with self.lock:
@@ -273,9 +271,10 @@ class HourlyTimeScheduler:
     def _run_time_loop(self):
         """
         Hourly Time Announcement at :00 (Sri Lanka Time).
-        Colombo Live Weather Announcement at :10 (exactly 10 minutes after hourly time).
+        Colombo Live Weather Announcement at :10 (Default, 10 minutes past the hour).
+        Cricbuzz Sri Lanka Live Cricket Announcement at :55 (ONLY if a Sri Lanka live match is active).
         """
-        print("[Scheduler] Hourly Time (:00), Colombo Weather (:10), & Radio ID (20m) active.")
+        print("[Scheduler] Automation Matrix Online: Time (:00), Weather (:10), & Live Cricket (:55) active.")
         while True:
             try:
                 now = get_colombo_time()
@@ -289,7 +288,7 @@ class HourlyTimeScheduler:
                         except Exception as te:
                             print(f"[Scheduler] Error in time announcement: {te}")
 
-                # 2. Colombo Weather Announcement at :10 (exactly 10 minutes after hourly time)
+                # 2. Colombo Weather Announcement at :10 (Default, 10 minutes past the hour)
                 if self.time_enabled and now.minute == 10 and 0 <= now.second <= 12:
                     if self.last_weather_hour != now.hour:
                         self.last_weather_hour = now.hour
@@ -298,8 +297,24 @@ class HourlyTimeScheduler:
                             self.broadcast_weather_sync()
                         except Exception as we:
                             print(f"[Scheduler] Error in weather announcement: {we}")
+
+                # 3. Cricbuzz Sri Lanka Live Cricket Announcement at :55
+                # Strictly only plays if an active live Sri Lanka match is in progress
+                if self.cricket_enabled and now.minute == 55 and 0 <= now.second <= 12:
+                    if self.last_cricket_hour != now.hour:
+                        self.last_cricket_hour = now.hour
+                        print(f"[Scheduler] Checking Cricbuzz Live Sri Lanka matches at :55 ({now.hour}:55)...")
+                        try:
+                            data = get_cricket_highlights_text(self.cricket_lang)
+                            if data.get("has_live"):
+                                print(f"[Cricket Engine] Sri Lanka Live match found! Broadcasting at :55...")
+                                self.broadcast_cricket_sync(self.cricket_lang)
+                            else:
+                                print(f"[Cricket Engine] No live match for Sri Lanka at :55. Skipping broadcast (Silent).")
+                        except Exception as ce:
+                            print(f"[Scheduler] Error in cricket announcement: {ce}")
             except Exception as e:
-                print(f"[Scheduler] Time/Weather loop error: {e}")
+                print(f"[Scheduler] Time/Weather/Cricket loop error: {e}")
 
             time.sleep(6)
 
@@ -379,25 +394,5 @@ class HourlyTimeScheduler:
 
     async def broadcast_cricket_async(self, lang: str = None) -> dict:
         return await asyncio.to_thread(self.broadcast_cricket_sync, lang)
-
-    def _run_cricket_loop(self):
-        """
-        Periodically checks Cricbuzz every 20 minutes (1200 seconds).
-        Broadcasts live match scorecards ONLY if there are active live matches currently in progress.
-        """
-        time.sleep(45) # Initial station warmup
-        while True:
-            try:
-                if self.is_cricket_enabled():
-                    elapsed = time.time() - self.last_cricket_broadcast_time
-                    if elapsed >= 1200: # 20 minutes
-                        has_active_music = (station_engine.deck_a.is_active or station_engine.deck_b.is_active)
-                        has_pending_voice = bool(station_engine.current_voice_pcm) or bool(station_engine.voice_queue)
-                        if has_active_music and not has_pending_voice and station_engine.is_on_air:
-                            self.broadcast_cricket_sync(self.cricket_lang)
-            except Exception as e:
-                print(f"[Cricket Engine] Loop error: {e}")
-
-            time.sleep(15)
 
 time_scheduler = HourlyTimeScheduler()

@@ -301,57 +301,15 @@ def get_cricket_highlights_text(lang: str = "si") -> dict:
             "time": time_str
         }
 
-    # 2. NO ACTIVE LIVE SRI LANKA MATCH (Upcoming Schedule from Sri Lanka Page)
-    if upcoming_match:
-        info = upcoming_match.get("matchInfo", {})
-        series = info.get("seriesName", "ක්‍රිකට් තරගාවලිය")
-        desc = info.get("matchDesc", "තරගය")
-        desc_si = translate_match_desc_sinhala(desc)
-        status = info.get("status", "")
-        status_si = translate_status_sinhala(status)
-        
-        t1_en = info.get("team1", {}).get("teamName", "Team 1")
-        t2_en = info.get("team2", {}).get("teamName", "Team 2")
-        t1_si = translate_team_name(t1_en)
-        t2_si = translate_team_name(t2_en)
-        
-        venue_info = info.get("venueInfo", {})
-        venue_str = f"{venue_info.get('ground', '')}, {venue_info.get('city', '')}".strip(', ')
-
-        if lang == "en":
-            script = (
-                f"Cricbuzz Cricket Update: Sri Lanka's next match is {desc} against {t2_en}. {status}. "
-                f"Stay tuned to Radio Four D M!"
-            )
-            headline = f"🦁 Cricbuzz Next Match: {t1_en} vs {t2_en} ({desc})"
-            summary = f"No live match right now. Next: {t1_en} vs {t2_en} ({status})"
-        else:
-            script = (
-                f"Cricbuzz ක්‍රිකට් තොරතුරු: ශ්‍රී ලංකාවේ ඊළඟ තරගය {desc_si} ලෙස {t1_si} සහ {t2_si} අතර. {status_si}. "
-                f"දිගටම රැඳී සිටින්න Radio Four D M සමඟින්!"
-            )
-            headline = f"🦁 Cricbuzz ශ්‍රී ලංකා මීළඟ තරගය: {t1_si} සහ {t2_si}"
-            summary = f"මේ මොහොතේ සජීවී තරග නොමැත. මීළඟ තරගය: {t1_si} සහ {t2_si} ({status_si})"
-
-        return {
-            "has_live": False,
-            "is_sl": True,
-            "matches_count": 0,
-            "headline": headline,
-            "summary": summary,
-            "script": script,
-            "venue": venue_str,
-            "source": CRICBUZZ_SL_SCHEDULE_URL,
-            "time": time_str
-        }
-
+    # 2. NO ACTIVE LIVE SRI LANKA MATCH (Strictly NO broadcast if no live match)
     return {
         "has_live": False,
         "is_sl": True,
         "matches_count": 0,
-        "headline": "ක්‍රියාකාරී සජීවී තරග නොමැත (No Active Sri Lanka Matches)",
-        "summary": "Cricbuzz ශ්‍රී ලංකා දත්ත අනුව මේ මොහොතේ සජීවී තරග නොමැත. තරගයක් ආරම්භ වූ වහාම විකාශය කෙරේ.",
+        "headline": "ක්‍රියාකාරී සජීවී තරග නොමැත (No Active Sri Lanka Live Matches)",
+        "summary": "Cricbuzz ශ්‍රී ලංකා දත්ත අනුව මේ මොහොතේ ශ්‍රී ලංකා කණ්ඩායමේ සජීවී තරග නොමැත. තරගයක් ආරම්භ වූ වහාම විකාශය කෙරේ.",
         "script": None,
+        "venue": "",
         "source": CRICBUZZ_SL_SCHEDULE_URL,
         "time": time_str
     }
