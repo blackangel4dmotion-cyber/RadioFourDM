@@ -186,29 +186,71 @@ function onListenerNameChange() {
     // Interactive handler if needed
 }
 
-const PREDEFINED_GOOGLE_KEY = "AQ.Ab8RN6KuK5zmnKB6t1XaiGOhxDEv2lYH225u7peYOOphrubhKw";
+// ==========================================
+// XTREAM AUTO-LINK & GEMINI KEY AUTOMATION (2-MIN WATCHDOG)
+// ==========================================
+let xtreamTimerSeconds = 120; // 2 minutes auto-countdown
+let xtreamIntervalId = null;
 
-async function pasteAndLinkPredefinedKey() {
-    if (geminiQuickKeyInput) geminiQuickKeyInput.value = PREDEFINED_GOOGLE_KEY;
-    if (modalGeminiKey) modalGeminiKey.value = PREDEFINED_GOOGLE_KEY;
+function updateXtreamTimerDisplay() {
+    const el = document.getElementById('xtreamCountdown');
+    if (!el) return;
+    const mins = Math.floor(xtreamTimerSeconds / 60);
+    const secs = xtreamTimerSeconds % 60;
+    el.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
+
+async function triggerXtreamLink(silent = false) {
+    xtreamTimerSeconds = 120; // Reset countdown to 2 minutes
+    updateXtreamTimerDisplay();
+    
+    if (!silent) showToast("⚡ Xtream Valid Key සක්‍රීය කරමින් පවතී...");
     try {
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            await navigator.clipboard.writeText(PREDEFINED_GOOGLE_KEY);
+        const res = await fetch('/api/vault/activate-xtream', { method: 'POST' });
+        const data = await res.json();
+        if (data.valid) {
+            showToast(`🎉 Xtream Gemini AI සාර්ථකව සම්බන්ධ විය! (${data.masked_key})`);
+            const codeEl = document.getElementById('predefinedKeyText');
+            if (codeEl) codeEl.innerHTML = `<i class="fa-solid fa-circle-check" style="color: #10b981;"></i> Active: ${data.masked_key}`;
+            await checkGeminiStatus();
+        } else {
+            showToast(`⚠️ Xtream: ${data.message || 'Key check failed'}`);
         }
-    } catch(e) {}
-    showToast("Google Key එක ඇතුළත් විය! සම්බන්ධ කර පරීක්ෂා කරමින් පවතී...");
-    verifyAndSaveGeminiKey();
+    } catch(e) {
+        console.warn("Xtream link error:", e);
+    }
+}
+
+function startXtreamCountdown() {
+    if (xtreamIntervalId) clearInterval(xtreamIntervalId);
+    updateXtreamTimerDisplay();
+    
+    xtreamIntervalId = setInterval(() => {
+        xtreamTimerSeconds--;
+        if (xtreamTimerSeconds <= 0) {
+            xtreamTimerSeconds = 120; // Reset countdown
+            console.log("[Xtream Auto-Timer] 2 minutes elapsed. Auto-linking Xtream Key...");
+            triggerXtreamLink(true);
+        } else {
+            updateXtreamTimerDisplay();
+        }
+    }, 1000);
+}
+
+// User-custom paste and link: Supports pasting a custom new key, or activates vault
+async function pasteAndLinkPredefinedKey() {
+    const customKey = (geminiQuickKeyInput && geminiQuickKeyInput.value.trim()) ? geminiQuickKeyInput.value.trim() : "";
+    if (customKey) {
+        showToast("Google Key එක ඇතුළත් විය! සම්බන්ධ කර පරීක්ෂා කරමින් පවතී...");
+        await verifyAndSaveGeminiKey(false);
+    } else {
+        // If empty, activate the encrypted Xtream vault directly
+        await triggerXtreamLink(false);
+    }
 }
 
 function copyPredefinedKey() {
-    try {
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(PREDEFINED_GOOGLE_KEY);
-            showToast("Google Key එක Clipboard එකට Copy විය!");
-            return;
-        }
-    } catch (e) {}
-    alert("Google Key: " + PREDEFINED_GOOGLE_KEY);
+    showToast("Xtream Key එක Server-Side Encrypted Vault මඟින් 100% සුරක්ෂිතයි.");
 }
 
 function showToast(msg) {
@@ -1083,6 +1125,10 @@ async function checkGeminiStatus() {
                 geminiQuickStatus.className = "gemini-status-text ok";
                 geminiQuickStatus.innerHTML = `✅ Gemini Active & Verified (${data.masked_key})`;
             }
+            const codeEl = document.getElementById('predefinedKeyText');
+            if (codeEl) {
+                codeEl.innerHTML = `<i class="fa-solid fa-shield-halved" style="color: #10b981;"></i> Active: ${data.masked_key}`;
+            }
             if (geminiQuickKeyInput && !geminiQuickKeyInput.value) {
                 geminiQuickKeyInput.placeholder = `Active Key: ${data.masked_key} (Paste new key to change)`;
             }
@@ -1105,10 +1151,10 @@ async function checkGeminiStatus() {
     }
 }
 
-async function verifyAndSaveGeminiKey() {
+async function verifyAndSaveGeminiKey(silent = false) {
     const rawKey = geminiQuickKeyInput ? geminiQuickKeyInput.value.trim() : "";
     if (!rawKey) {
-        alert("කරුණාකර ඔබගේ Google Gemini API Key එක ඇතුළත් කරන්න.\n(Google AI Studio වෙතින් නොමිලේ ලබාගත හැක - AIzaSy... වලින් ආරම්භ වේ)");
+        if (!silent) alert("කරුණාකර ඔබගේ Google Gemini API Key එක ඇතුළත් කරන්න.\n(Google AI Studio වෙතින් නොමිලේ ලබාගත හැක - AIzaSy... වලින් ආරම්භ වේ)");
         return;
     }
 
@@ -1130,12 +1176,14 @@ async function verifyAndSaveGeminiKey() {
         const data = await res.json();
         
         if (data.valid) {
-            alert(`🎉 Google Gemini AI සාර්ථකව සම්බන්ධ විය!\nAPI Key: ${data.masked_key}\nදැන් Radio Four D M සජීවීව Gemini Live Voice භාවිතා කරයි.`);
+            showToast(`🎉 Google Gemini AI සාර්ථකව සම්බන්ධ විය! (${data.masked_key})`);
             if (geminiQuickKeyInput) geminiQuickKeyInput.value = "";
             await checkGeminiStatus();
         } else {
             const errReason = data.detail || "Authentication Failed";
-            alert(`❌ Gemini Key සම්බන්ධ කළ නොහැකි විය!\n\nහේතුව: ${errReason}\n\nකරුණාකර aistudio.google.com/app/apikey වෙතින් ලබාගත් නිවැරදි API යතුර (AIzaSy...) භාවිතා කරන්න.`);
+            if (!silent) {
+                showToast(`❌ Key Error: ${errReason.substring(0, 80)}`);
+            }
             if (geminiQuickStatus) {
                 geminiQuickStatus.className = "gemini-status-text warn";
                 geminiQuickStatus.innerHTML = `❌ Key Error: ${errReason.substring(0, 80)}`;
@@ -1146,10 +1194,14 @@ async function verifyAndSaveGeminiKey() {
             }
         }
     } catch (e) {
-        alert("Server error: " + e.message);
+        if (!silent) showToast("Server error: " + e.message);
     } finally {
         if (geminiLinkBtn) {
             geminiLinkBtn.disabled = false;
+            geminiLinkBtn.innerHTML = `<i class="fa-solid fa-plug-circle-bolt"></i> Link & Test`;
+        }
+    }
+}
             geminiLinkBtn.innerHTML = `<i class="fa-solid fa-plug-circle-bolt"></i> Link & Test`;
         }
     }
@@ -1602,6 +1654,9 @@ setInterval(fetchStatus, 1500); // 1.5s interval: perfectly smooth, zero UI lag
 // Check Gemini AI API status
 checkGeminiStatus();
 setInterval(checkGeminiStatus, 15000);
+
+// Start Xtream 2-minute auto-countdown & auto-trigger
+startXtreamCountdown();
 
 // Ada Derana Live Headline Polling (Every 5 minutes)
 refreshAdaDeranaNews();
