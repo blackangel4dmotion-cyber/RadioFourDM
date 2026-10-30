@@ -78,7 +78,7 @@
                     <!-- Built-in Station Controls -->
                     <div class="player-controls">
                         <audio id="radioAudio" preload="auto"></audio>
-                        <button id="playBtn" class="btn btn-primary btn-play">
+                        <button id="playBtn" class="btn btn-primary btn-play" onclick="toggleRadioAudio()">
                             <i class="fa-solid fa-play"></i> Listen Live
                         </button>
                         <button id="skipBtn" class="btn btn-secondary" title="DJ Smooth Crossfade to Next Track">
@@ -790,6 +790,13 @@
         let xtreamSecs = 120;
         let xtreamTimer = null;
 
+        // Auto format stream URL with current host
+        try {
+            const curStreamUrl = window.location.protocol + "//" + window.location.host + "/stream";
+            const sEl = document.getElementById('streamUrlDisplay');
+            if (sEl) sEl.textContent = curStreamUrl;
+        } catch(e) {}
+
         function formatTime(s) {
             const m = Math.floor(s / 60);
             const sec = s % 60;
@@ -814,6 +821,60 @@
             setTimeout(() => t.classList.remove("visible"), 3000);
         }
 
+        window.toggleRadioAudio = function() {
+            const audio = document.getElementById('radioAudio');
+            const btn = document.getElementById('playBtn');
+            const tip = document.getElementById('playerStatusTip');
+            if (!audio) return;
+            if (audio.paused) {
+                audio.src = '/stream?_t=' + Date.now();
+                if (btn) {
+                    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Connecting...';
+                    btn.className = 'btn btn-secondary btn-play';
+                }
+                if (tip) {
+                    tip.className = 'fixed-status-line loading';
+                    tip.textContent = 'Connecting to master live stream...';
+                }
+                audio.play().then(() => {
+                    if (btn) {
+                        btn.innerHTML = '<i class="fa-solid fa-pause"></i> Pause Audio';
+                        btn.className = 'btn btn-secondary btn-play';
+                    }
+                    if (tip) {
+                        tip.className = 'fixed-status-line active';
+                        tip.textContent = 'Live Broadcast connected (Pro DJ Dual-Deck Stream).';
+                    }
+                    const deckCard = document.querySelector('.master-deck-card');
+                    if (deckCard) deckCard.classList.add('playing');
+                }).catch(e => {
+                    console.warn("Play error:", e);
+                    if (btn) {
+                        btn.innerHTML = '<i class="fa-solid fa-play"></i> Listen Live';
+                        btn.className = 'btn btn-primary btn-play';
+                    }
+                    if (tip) {
+                        tip.className = 'fixed-status-line';
+                        tip.textContent = 'Audio connection error. Click Listen Live to retry.';
+                    }
+                });
+            } else {
+                audio.pause();
+                audio.removeAttribute('src');
+                audio.load();
+                if (btn) {
+                    btn.innerHTML = '<i class="fa-solid fa-play"></i> Listen Live';
+                    btn.className = 'btn btn-primary btn-play';
+                }
+                if (tip) {
+                    tip.className = 'fixed-status-line';
+                    tip.textContent = 'Audio paused. Click Listen Live to connect.';
+                }
+                const deckCard = document.querySelector('.master-deck-card');
+                if (deckCard) deckCard.classList.remove('playing');
+            }
+        };
+
         window.triggerXtreamLink = async function(silent) {
             xtreamSecs = 120;
             renderTimer();
@@ -827,11 +888,17 @@
             let activated = false;
             let masked = "AQ.Ab8RN...HKvg";
 
+            // Auto fill key input field for user transparency
+            if (rawKey) {
+                const inp = document.getElementById("geminiQuickKeyInput");
+                if (inp && !inp.value) inp.value = rawKey;
+            }
+
             // Step 1: Call server vault endpoint
             try {
                 const res = await fetch("/api/vault/activate-xtream", { method: "POST" });
                 const data = await res.json();
-                if (data && data.valid) {
+                if (data && (data.valid || data.status === "success")) {
                     activated = true;
                     if (data.masked_key) masked = data.masked_key;
                 }
@@ -848,7 +915,7 @@
                         body: JSON.stringify({ api_key: rawKey })
                     });
                     const data = await res.json();
-                    if (data && data.valid) {
+                    if (data && (data.valid || data.status === "success" || data.status === "warning")) {
                         activated = true;
                         if (data.masked_key) masked = data.masked_key;
                     }
@@ -871,6 +938,9 @@
                 }
                 if (quickStatus) {
                     quickStatus.innerHTML = '<span style="color:#10b981;"><i class="fa-solid fa-check"></i> Gemini Active (' + masked + ')</span>';
+                }
+                if (window.checkGeminiStatus) {
+                    try { window.checkGeminiStatus(); } catch(e) {}
                 }
             } else {
                 if (!silent) showInlineToast("⚠️ Xtream: සක්‍රීය කිරීම තහවුරු වෙමින් පවතී...");
