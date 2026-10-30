@@ -77,7 +77,7 @@ class GeminiVaultManager:
                 with open(VAULT_FILE, "rb") as f:
                     blob = f.read()
                     dec = decrypt_key(blob)
-                    if dec and dec.startswith("AQ."):
+                    if dec and len(dec) > 20:
                         self._cached_key = dec
                         self.status_message = "Encrypted Vault Active (Key Protected)"
             except Exception as e:

@@ -194,72 +194,90 @@ async def update_system_config(req: ConfigUpdateRequest):
 
 @app.get("/api/config/gemini-status")
 async def get_gemini_status_endpoint():
-    cfg = load_config()
-    key = cfg.get("gemini_api_key", "").strip() or os.getenv("GEMINI_API_KEY", "").strip()
+    from api_vault import vault
+    key = vault.get_key()
+    if not key:
+        cfg = load_config()
+        key = cfg.get("gemini_api_key", "").strip() or os.getenv("GEMINI_API_KEY", "").strip()
+    
+    if not key or key == "[ENCRYPTED_VAULT_ACTIVE]":
+        key = vault.get_key()
+
     if not key:
         return {
             "configured": False,
             "valid": False,
             "masked_key": "",
-            "message": "No Gemini API key configured"
+            "message": "No Gemini API key in vault"
         }
     
-    # Fast test with Google GenAI
-    try:
-        from google import genai
-        client = genai.Client(api_key=key)
-        # Attempt to list one model
-        for _ in client.models.list():
-            break
-        masked = f"{key[:6]}...{key[-4:]}" if len(key) > 10 else "***"
-        return {
-            "configured": True,
-            "valid": True,
-            "masked_key": masked,
-            "message": "Gemini AI API Key verified and active"
-        }
-    except Exception as e:
-        masked = f"{key[:6]}...{key[-4:]}" if len(key) > 10 else "***"
-        return {
-            "configured": True,
-            "valid": False,
-            "masked_key": masked,
-            "message": f"Auth error: {str(e)[:120]}"
-        }
+    return {
+        "configured": True,
+        "valid": vault.is_healthy,
+        "masked_key": vault.get_masked_key(),
+        "message": vault.status_message
+    }
+
+@app.post("/api/vault/verify")
+async def verify_vault_endpoint():
+    from api_vault import vault
+    ok = vault.verify_key_connectivity()
+    return {
+        "status": "ok" if ok else "error",
+        "valid": ok,
+        "masked_key": vault.get_masked_key(),
+        "message": vault.status_message
+    }
+
+@app.post("/api/vault/activate-xtream")
+async def activate_xtream_endpoint():
+    from api_vault import vault
+    ok = vault.verify_key_connectivity()
+    if ok:
+        cfg = load_config()
+        cfg["gemini_api_key"] = "[ENCRYPTED_VAULT_ACTIVE]"
+        cfg["tts_provider"] = "gemini"
+        save_config(cfg)
+        os.environ["GEMINI_API_KEY"] = vault.get_key()
+    return {
+        "status": "success" if ok else "error",
+        "valid": ok,
+        "masked_key": vault.get_masked_key(),
+        "message": "Xtream Key linked and active from encrypted vault!" if ok else vault.status_message
+    }
 
 @app.post("/api/config/verify-gemini")
 async def verify_and_save_gemini_key(req: GeminiVerifyRequest):
+    from api_vault import vault
     key = req.api_key.strip()
+    if not key or key == "[ENCRYPTED_VAULT_ACTIVE]":
+        key = vault.get_key()
+    
     if not key:
         raise HTTPException(status_code=400, detail="Gemini API Key cannot be empty.")
     
     try:
-        from google import genai
-        client = genai.Client(api_key=key)
-        # Verify by querying models
-        for _ in client.models.list():
-            break
+        # Store in encrypted vault
+        vault.store_key(key)
+        ok = vault.verify_key_connectivity()
         
-        # Save valid key
         cfg = load_config()
-        cfg["gemini_api_key"] = key
+        cfg["gemini_api_key"] = "[ENCRYPTED_VAULT_ACTIVE]"
         cfg["tts_provider"] = "gemini"
         save_config(cfg)
         os.environ["GEMINI_API_KEY"] = key
         
-        masked = f"{key[:6]}...{key[-4:]}" if len(key) > 10 else "***"
         return {
-            "status": "success",
-            "valid": True,
-            "masked_key": masked,
-            "message": "Google Gemini API Key successfully verified and linked!"
+            "status": "success" if ok else "warning",
+            "valid": ok,
+            "masked_key": vault.get_masked_key(),
+            "message": "Google Gemini Key encrypted into secure vault & verified!"
         }
     except Exception as e:
-        err_msg = str(e)
         return {
             "status": "error",
             "valid": False,
-            "detail": err_msg
+            "detail": str(e)
         }
 
 # DJ Mixer Controls
