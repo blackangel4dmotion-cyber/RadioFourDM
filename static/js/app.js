@@ -1202,10 +1202,6 @@ async function verifyAndSaveGeminiKey(silent = false) {
         }
     }
 }
-            geminiLinkBtn.innerHTML = `<i class="fa-solid fa-plug-circle-bolt"></i> Link & Test`;
-        }
-    }
-}
 
 async function saveStudioSettings() {
     const rawGemini = modalGeminiKey ? modalGeminiKey.value.trim() : "";
