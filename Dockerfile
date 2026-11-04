@@ -14,7 +14,7 @@ ENV HOME=/home/user \
     PATH=/home/user/.local/bin:$PATH \
     PYTHONUNBUFFERED=1 \
     PYTHONIOENCODING=utf-8 \
-    PORT=10000
+    PORT=7860
 
 WORKDIR $HOME/app
 
