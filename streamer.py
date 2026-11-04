@@ -3,6 +3,7 @@ import sys
 import time
 import math
 import re
+import json
 import subprocess
 import threading
 import queue
@@ -26,6 +27,7 @@ else:
 
 CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "audio_cache")
 SILENCE_FILE = os.path.join(CACHE_DIR, "silence.mp3")
+HISTORY_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "played_history.json")
 try:
     with open(SILENCE_FILE, "rb") as f:
         SILENCE_DATA = f.read()
@@ -290,8 +292,8 @@ class AudioStationEngine:
         self.playlist: List[Dict[str, Any]] = []
         self.voice_queue: List[Dict[str, Any]] = []
         
-        # Deduplication tracking: Store normalized titles and timestamps (1-hour / 3600s repeat lockout)
-        self.played_history: Dict[str, float] = {}
+        # Persistent 24-Hour Deduplication (86,400s lockout; next-day replay allowed)
+        self.played_history: Dict[str, float] = self._load_played_history()
         
         # Active SFX overlays playing concurrently
         self.active_sfx_list: List[Dict[str, Any]] = []
@@ -343,12 +345,49 @@ class AudioStationEngine:
             except Exception:
                 pass
 
+    def _load_played_history(self) -> Dict[str, float]:
+        now = time.time()
+        history = {}
+        if os.path.exists(HISTORY_FILE):
+            try:
+                with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    if isinstance(data, dict):
+                        history = {k: float(v) for k, v in data.items() if (now - float(v)) < 86400}
+                print(f"[Engine] Loaded {len(history)} persistent tracks played within last 24 hours.")
+            except Exception as e:
+                print(f"[Engine] Could not load played history from file: {e}")
+        return history
+
+    def _save_played_history(self):
+        try:
+            now = time.time()
+            clean = {k: v for k, v in self.played_history.items() if (now - v) < 86400}
+            with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+                json.dump(clean, f, indent=2)
+        except Exception as e:
+            print(f"[Engine] Could not save played history to file: {e}")
+
+    def mark_as_played(self, title: str, url: str = ""):
+        """Records a track into 24-hour persistent history upon playback."""
+        now = time.time()
+        norm = self._normalize_title(title)
+        with self.lock:
+            # Clean up items older than 24h
+            self.played_history = {k: v for k, v in self.played_history.items() if (now - v) < 86400}
+            if norm:
+                self.played_history[norm] = now
+            if url:
+                self.played_history[url] = now
+            self._save_played_history()
+
     def _normalize_title(self, title: str) -> str:
-        """Strip brackets, artists formatting, and non-alphanumeric chars for accurate duplicate matching."""
+        """Strip brackets, tags, common buzzwords, and non-alphanumeric chars for accurate duplicate matching."""
         if not title:
             return ""
         is_remix = "remix" in title.lower() or "mix" in title.lower()
         t = re.sub(r'\[.*?\]|\(.*?\)', '', title) # Remove [Sinhala], (Official Video), etc.
+        t = re.sub(r'(?i)\b(official|music|video|audio|lyrics|lyric|hd|4k|ft|feat|prod)\b', '', t)
         t = re.sub(r'[^a-zA-Z0-9\u0D80-\u0DFF]', '', t).lower()
         if is_remix:
             t += "_remix"
@@ -380,6 +419,11 @@ class AudioStationEngine:
             # 3. Check 24-hour (same day) played history (86400s lockout - next day allowed)
             if norm and norm in self.played_history:
                 last_time = self.played_history[norm]
+                if now - last_time < 86400:
+                    return True
+
+            if url and url in self.played_history:
+                last_time = self.played_history[url]
                 if now - last_time < 86400:
                     return True
 
@@ -435,9 +479,7 @@ class AudioStationEngine:
             active_deck = self.deck_a if self.current_deck_name == "A" else self.deck_b
             next_deck = self.deck_b if self.current_deck_name == "A" else self.deck_a
             
-            norm_title = self._normalize_title(target_track.get("title", ""))
-            if norm_title:
-                self.played_history[norm_title] = time.time()
+            self.mark_as_played(target_track.get("title", ""), target_track.get("original_url", ""))
             crossfade_sec = 4.0
 
             # 1. Immediately insert/load track into 2nd Deck so UI reflects it instantly
@@ -949,9 +991,7 @@ class AudioStationEngine:
             
             if self.playlist:
                 incoming_track = self.playlist.pop(0)
-                norm_inc = self._normalize_title(incoming_track.get("title", ""))
-                if norm_inc:
-                    self.played_history[norm_inc] = time.time()
+                self.mark_as_played(incoming_track.get("title", ""), incoming_track.get("original_url", ""))
                 crossfade_sec = 3.5
                 next_deck.load_and_play(incoming_track, initial_volume=0.0, target_volume=1.0, fade_duration_sec=crossfade_sec)
                 active_deck.fade_out(duration_sec=crossfade_sec)
@@ -1045,9 +1085,7 @@ class AudioStationEngine:
                 with self.lock:
                     if self.playlist:
                         next_track = self.playlist.pop(0)
-                        norm_t = self._normalize_title(next_track.get("title", ""))
-                        if norm_t:
-                            self.played_history[norm_t] = time.time()
+                        self.mark_as_played(next_track.get("title", ""), next_track.get("original_url", ""))
                         active_deck.load_and_play(next_track, initial_volume=0.0, target_volume=1.0, fade_duration_sec=2.0)
 
             # 3. Seamless Decibel-Matched Crossfade Check
@@ -1077,9 +1115,7 @@ class AudioStationEngine:
                         print(f"[DJ Mixer] Song ended. Broadcasting Quick News between songs before next track starts: {news_item['title']}")
                     elif self.playlist:
                         incoming_track = self.playlist.pop(0)
-                        norm_inc = self._normalize_title(incoming_track.get("title", ""))
-                        if norm_inc:
-                            self.played_history[norm_inc] = time.time()
+                        self.mark_as_played(incoming_track.get("title", ""), incoming_track.get("original_url", ""))
                         
                         active_deck.fade_out(duration_sec=crossfade_sec)
                         next_deck.load_and_play(incoming_track, initial_volume=0.0, target_volume=1.0, fade_duration_sec=crossfade_sec)
