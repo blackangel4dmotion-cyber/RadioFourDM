@@ -287,7 +287,7 @@ class Deck:
 
 class AudioStationEngine:
     def __init__(self):
-        self.lock = threading.Lock()
+        self.lock = threading.RLock()
         self.clients: List[queue.Queue] = []
         self.playlist: List[Dict[str, Any]] = []
         self.voice_queue: List[Dict[str, Any]] = []

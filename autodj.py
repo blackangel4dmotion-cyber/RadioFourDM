@@ -6,12 +6,11 @@ import concurrent.futures
 import yt_dlp
 from typing import List, Dict, Any, Optional, Tuple
 
-if sys.platform == "win32":
-    try:
-        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
-        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
-    except Exception:
-        pass
+try:
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+except Exception:
+    pass
 
 # In-memory stream cache for repeat-less queries (2 hours TTL)
 _STREAM_CACHE: Dict[str, Any] = {}
@@ -369,7 +368,7 @@ class AutoDJEngine:
         self.rotation_step = 0 # 0..21 (22-song rotation cycle)
         self.dynamic_query_idx = {k: 0 for k in DYNAMIC_SEARCH_QUERIES}
         self.is_running = False
-        self.lock = threading.Lock()
+        self.lock = threading.RLock()
         self.worker: Optional[threading.Thread] = None
 
     def start(self):
@@ -427,7 +426,7 @@ class AutoDJEngine:
                 'no_warnings': True,
                 'default_search': 'ytsearch',
                 'source_address': '0.0.0.0',
-                'socket_timeout': 6,
+                'socket_timeout': 12,
                 'extractor_args': {
                     'youtube': {
                         'player_client': ['android', 'ios', 'mweb']
@@ -474,7 +473,33 @@ class AutoDJEngine:
                         entry = valid_candidates[0]
             except Exception as e:
                 print(f"[AutoDJ] Extraction error for '{query}': {e}")
-                return None
+
+        # Fallback to SoundCloud if YouTube failed or blocked on cloud data centers
+        if not entry or not entry.get('url'):
+            try:
+                sc_title = fallback_title or query
+                sc_query = f"scsearch3:{sc_title} official"
+                ydl_opts_sc = {
+                    'format': 'bestaudio/best',
+                    'quiet': True,
+                    'no_warnings': True,
+                    'socket_timeout': 10
+                }
+                with yt_dlp.YoutubeDL(ydl_opts_sc) as ydl:
+                    info = ydl.extract_info(sc_query, download=False)
+                    sc_entries = info.get('entries') or ([info] if info and info.get('url') else [])
+                    for sc_c in sc_entries:
+                        dur = sc_c.get('duration', 0)
+                        if dur >= 45 and sc_c.get('url'):
+                            sc_t = sc_c.get('title', '')
+                            sc_u = sc_c.get('uploader', '')
+                            if not is_unwanted_unofficial_cover(sc_t, sc_u):
+                                if not self.station_engine.is_duplicate(sc_t, sc_c.get('webpage_url', '')):
+                                    entry = sc_c
+                                    print(f"[AutoDJ] Resolved via SoundCloud fallback: {entry.get('title')}")
+                                    break
+            except Exception as sc_err:
+                print(f"[AutoDJ] SoundCloud fallback error: {sc_err}")
 
         if not entry or not entry.get('url'):
             return None
@@ -539,7 +564,7 @@ class AutoDJEngine:
             'no_warnings': True,
             'default_search': 'ytsearch',
             'source_address': '0.0.0.0',
-            'socket_timeout': 7,
+            'socket_timeout': 12,
             'extractor_args': {
                 'youtube': {
                     'player_client': ['android', 'ios', 'mweb']
